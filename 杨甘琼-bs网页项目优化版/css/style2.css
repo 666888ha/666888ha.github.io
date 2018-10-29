@@ -1,0 +1,219 @@
+*{
+	padding: 0px;
+	margin:0px;
+	font-family: "宋体";
+}
+.box{
+	width: 100%;
+	background: #E3E3E3;
+	padding:1rem 0rem;
+}
+.box>.p1{
+	text-align: center;
+	margin-bottom: 0px;
+}
+.dierge{
+	padding-top:5rem;
+}
+a:hover{
+	text-decoration: none;
+}
+li{
+	list-style: none;
+}
+.one>.shan{
+	display: flex;
+	justify-content: space-between;
+}
+.one>.shan>button>i{
+	width: 2rem;
+	height: 2rem;
+	background: url("../img/bianji (1).png") no-repeat;
+	background-size: 100%;
+	display: inline-block;
+}
+.one>.shan>button{
+	padding:0rem  1rem;
+	outline: none;
+	border:none;
+	font-size: 2rem;
+	background: white;
+	border: 1px solid lightgray;
+}
+.one>p{
+	font-size: 1.5rem;
+}
+.two>h3>a{
+display: none;
+}
+.two>h3:hover>a{
+	display: inline-block;
+}
+.two>h4>a{
+display: none;
+}
+.two>h4:hover>a{
+	display: inline-block;
+}
+.two>p{
+	font-size: 1.5rem;
+}
+.two li{
+	font-size: 1.5rem;
+}
+.two>blockquote>p{
+	font-size: 1.5rem;
+}
+.two>p>input{
+	padding: 1.5rem;
+	width: 100%;
+}
+.three{
+	width: 80%;
+	padding:1rem 3rem;
+	background: #EBEBE4;
+	margin-bottom: 3rem;
+}
+.three button{
+	padding: 0.4rem 2rem;
+	font-size: 1.5rem;
+	border: none;
+	outline: none;
+	color: white;
+	background: #373277;
+}
+.three .head>h4{
+	float:left;
+}
+.three .head>span{
+	float:right;
+}
+#chuf .nav ul>li{
+	list-style: none;
+	font-size:1.5rem;
+	color:gray;
+	margin-top:1rem;
+}
+ #chuf .nav>li>a{
+	color:gray;
+	text-decoration: none;
+	 padding:0px;
+}
+ #chuf .nav>li>a>i{
+display: none;
+}
+.nav>li>a:hover>i{
+	font-style: normal;
+	display: inline-block;
+}
+.nav>li>a:hover{
+	color:blue;
+}
+.panel-collapse{
+	border-left: 1px solid blue;
+}
+.panel-heading{
+	border-left: 1px solid lightgray;
+}
+.panel-heading:hover{
+border-left: 1px solid blue;
+}
+.panel-group .panel + .panel {
+	border: none;
+     margin-top: 0px; 
+     border-radius:0px;
+}
+.panel-title {
+font-size: 1.2rem;
+color:gray;
+}
+.panel-title>span{
+	width: 1rem;
+	height: 1rem;
+	display: none;
+}
+.panel-title:hover>span{
+display: inline-block;
+}
+// .panel-title:after{
+// 	content:'';
+// 	width: 1rem;
+// 	height: 1rem;
+// 	background: url("../img/shanjianto.png") no-repeat;
+// 	background-size: 100%;
+// 	position: absolute;
+// 	top:0px;
+// 	right: 0px;
+// 	display: none;
+// }
+// .panel-title:hover:after{
+// 	display: inline-block;
+// }
+.biaodan>select{
+	width: 30%;
+	padding: 1rem;
+	font-size: 1rem;
+}
+.dibu {
+	height: auto;
+	background: #333333;
+	padding: 1rem 0 1rem 0;
+	color: white;
+}
+.cc1{
+	padding-top: 1rem;
+}
+.cc2{
+	padding-top: 1rem;
+}
+.cc2 li{
+	float: left;
+}
+.ditu{
+	display: inline-block;
+	width: 8rem;
+	height: 2rem;
+	background:url("../img/microsoft-logo.png") no-repeat;
+	background-size: 8rem 2rem;
+}
+.cc2 ol{
+	display: flex;
+	justify-content: space-around;
+}
+.cc2 a{
+	color:white;
+}
+.f2{
+	padding: 0.2rem;
+	background: white;
+	border-radius:3px;
+	color: black;
+}
+.f3{
+	padding: 0.2rem;
+	background: white;
+	border-radius:3px;
+	color:black;
+	position: relative;
+}
+.f1{
+	color:white;
+}
+.f3::before{
+	content: "";
+	width: .5rem;
+	height:.5rem;
+	display: block;
+	transform:rotate(45deg);
+	background:white;
+	position: absolute;
+	top:40%;
+	left:-7%;
+}
+.dibu em{
+	width: 10px;
+	height:10px;
+	display: inline-block;
+	background: url("../img/ww.png") no-repeat;
+	background-size: 10px;
+}

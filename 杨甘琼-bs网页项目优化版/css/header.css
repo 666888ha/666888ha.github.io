@@ -1,0 +1,73 @@
+*{
+	margin:0px;
+	padding: 0px;
+}
+.tobu{
+	width: 100%;
+	height:auto;
+	background: #373277;
+}
+.tobu>.navbar-inverse{
+	background: #373277;
+	border-color:#373277;
+}
+.tobu .nav{
+	height:50px;
+}
+.tobu form{
+	height: 50px;
+	position: relative;
+}
+.tobu .in{
+	color:white;
+	padding: 1.271rem 0rem 1.271rem 2rem;
+	outline: none;
+	border: none;
+	background: #5B5790;
+
+}
+.tobu form:before{
+	content:"";
+	width: 2rem;
+	height:2rem;
+	background: url("../img/shousuo.png") no-repeat;
+	background-size: 100%;
+	position: absolute;
+	top:25%;
+	left:0px;
+}
+.i1{
+	position: relative;	
+	font-style: normal;
+}
+.tobu .gt{
+	outline: none;
+	border: none;
+	padding: 0.97rem 3rem;
+	background: #58973E;
+	color:white;
+	font-size: 2rem;
+	font-family: "宋体";
+}
+.tobu .gt:before{
+	content: "";
+	width: 1.5rem;
+	height: 1.5rem;
+	background:url("../img/xiazai.png") no-repeat;
+	background-size: 100%;
+	position: absolute;
+	top:-7%;
+	left:0;
+}
+.tobu .shanbiao{
+	color:white;
+	font-size: 2rem;
+}
+.navbar{
+	margin-bottom: 0px;
+}
+@media screen and (max-width:768px){
+	.tobu .navbar-right{
+	display: none;
+}
+}
