@@ -1,0 +1,135 @@
+@charset "UTF-8";
+* {
+  margin: 0px;
+  padding: 0px;
+}
+a {
+  text-decoration: none;
+  color: white;
+}
+.head {
+  width: 100%;
+  height: 1.17333333rem;
+  display: flex;
+  justify-content: space-around;
+  position: fixed;
+  top: 0rem;
+  z-index: 9;
+  background: white;
+}
+.head .p11 {
+  width: 60%;
+  text-align: center;
+  height: 100%;
+  font-size: 0.53333333rem;
+  font-family: "宋体";
+  color: gray;
+  line-height: 1.17333333rem;
+}
+.head .s11 {
+  width: 20%;
+  height: 100%;
+  line-height: 100%;
+  text-align: center;
+}
+.boss {
+  width: 100%;
+  height: 6.10666667rem;
+  background: url("../img/zs.jpg") no-repeat;
+  background-size: 100%;
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.boss .s1 > img {
+  width: 3.45333333rem;
+  height: 3.45333333rem;
+  border-radius: 50%;
+}
+.boss .s2 {
+  width: 100%;
+  text-align: center;
+  font-family: "宋体";
+  font-size: 0.53333333rem;
+  color: white;
+}
+.boss .s3 {
+  width: 100%;
+  text-align: center;
+  font-family: "宋体";
+  font-size: 0.26666667rem;
+  color: white;
+}
+.one {
+  width: 100%;
+  height: 3rem;
+  display: flex;
+  justify-content: space-around;
+}
+.one .bao {
+  width: 19%;
+  height: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  align-items: center;
+}
+.one .bao .ss {
+  font-size: 0.4rem;
+  font-family: "宋体";
+  text-align: center;
+  color: gray;
+  width: 100%;
+}
+.line {
+  width: 100%;
+  height: 0.02666667rem;
+  background: lightgray;
+  display: inline-block;
+}
+.ll {
+  list-style: none;
+  display: flex;
+  justify-content: space-around;
+}
+.ll .h1 {
+  font-family: "宋体";
+  font-size: 0.4rem;
+  width: 70%;
+  color: gray;
+}
+.ll .h2 {
+  font-family: "宋体";
+  font-size: 0.53333333rem;
+  width: 20%;
+  text-align: center;
+}
+.dibu {
+  width: 100%;
+  height: 1.30666667rem;
+  background: #f0f0f0;
+  position: fixed;
+  bottom: 0rem;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+.dibu .one {
+  width: 20%;
+  height: 100%;
+}
+.dibu .one > a {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  align-items: space-around;
+}
+.dibu .one > a p {
+  width: 100%;
+  color: lightgray;
+  font-size: 0.4rem;
+  text-align: center;
+  font-family: "宋体";
+  color: gray;
+}

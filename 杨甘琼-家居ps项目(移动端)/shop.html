@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>购物车</title>
+	<link rel="stylesheet" href="less/style3.css">
+	<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <script>
+    var pixelRatio = 1 / window.devicePixelRatio;   
+    document.write('<meta name="viewport" content="width=device-width,initial-scale='+pixelRatio+',minimum-scale='+pixelRatio+',maximum-scale='+pixelRatio+'" />');
+    var html=document.getElementsByTagName('html')[0];
+    var pageWidth=html.getBoundingClientRect().width;
+    html.style.fontSize=(pageWidth/10)*1+"px";           
+  </script>
+  <script src="jquery.min.js"></script>
+</head>
+<body>
+<!-- 头部 -->
+  <div class="head">
+  	<span class="s11">&lt;</span>
+    <span class="p11">购物车</span>
+    <span class="s11">编辑</span>
+  </div>
+  <div class="box">
+  	<div class="box1">
+  		<input type="checkbox">
+  	</div>
+  	<div class="box2">
+  		<div class="ba">
+  			<img src="img/zhuozhi.jpg" alt="">
+  		</div>
+  	</div>
+  	<div class="box3">
+  		<span class="m1">美仑漫步-餐桌KQL-05b</span>
+  		<span class="w2">型号:KQL-05b</span>
+  		<span class="w3">
+  			<small>￥1200</small>
+  			<span class="fz">
+  				<i class="i1">-</i>
+  				<span class="t1">1</span>
+  				<i class="i2">+</i>
+  			</span>
+  		</span>
+  	</div>
+  </div>
+   <div class="box">
+  	<div class="box1">
+  		<input type="checkbox">
+  	</div>
+  	<div class="box2">
+  		<div class="ba">
+  			<img src="img/yi.jpg" alt="">
+  		</div>
+  	</div>
+  	<div class="box3">
+  		<span class="m1">美仑漫步-椅子XQ-01</span>
+  		<span class="w2">型号:XQ-01</span>
+  		<span class="w3">
+  			<small>￥800</small>
+  			<span class="fz">
+  				<i class="i1">-</i>
+  				<span class="t1">1</span>
+  				<i class="i2">+</i>
+  			</span>
+  		</span>
+  	</div>
+  </div>
+   <div class="box">
+  	<div class="box1">
+  		<input type="checkbox">
+  	</div>
+  	<div class="box2">
+  		<div class="ba">
+  			<img src="img/yi1.jpg" alt="">
+  		</div>
+  	</div>
+  	<div class="box3">
+  		<span class="m1">美仑漫步-布艺沙发组合BQ-009</span>
+  		<span class="w2">型号:BQ-009</span>
+  		<span class="w3">
+  			<small>￥8000</small>
+  			<span class="fz">
+  				<i class="i1">-</i>
+  				<span class="t1">3</span>
+  				<i class="i2">+</i>
+  			</span>
+  		</span>
+  	</div>
+  </div>
+ <div class="jg">
+ 	<span class="r1">
+ 			<input type="checkbox" class="che">
+ 			<span class="q1">全选</span>
+ 	</span>
+ 	<span class="r2">
+ 		合计:
+ 		<span class="r22">
+ 			0.00
+ 		</span>
+ 		元
+ 	</span>
+ 	<span class="r3">
+ 		<button>结 算</button>
+ 	</span>
+ </div>
+ <!-- 底部 -->
+<div class="dibu">
+  <div class="one">
+    <a href="index.html">
+      <img src="img/首页@2x.png" alt="">
+      <p>首页</p>
+    </a>
+    </div>
+  <div class="one">
+   <a href="shangchen.html">
+      <img src="img/商城@2x.png" alt="">
+      <p>商城</p>
+    </a>
+  </div>
+  <div class="one">
+   <a href="shop.html">
+      <img src="img/导航-购物车@2x.png" alt="">
+      <p>购物车</p>
+    </a>
+  </div>
+  <div class="one">
+    <a href="my.html">
+      <img src="img/我的@2x.png" alt="">
+      <p>我的</p>
+    </a>
+  </div>
+</div>
+<script> 
+   var checkedAll=document.getElementsByClassName("che")[0]     
+    var oinput=document.getElementsByTagName('input')
+    var jia=document.getElementsByClassName("i2") 
+              for(var i=0;i<oinput.length;i++){
+                oinput[i].onclick=function(){    
+                  var qx=true         
+                      for(var i=0;i<oinput.length;i++)
+                      {
+                        if(oinput[i].checked==false)
+                          {qx=false}        
+                                  }           
+                         checkedAll.checked=qx                
+                                             }    
+                                           }       
+                               for(var i=0;i<oinput.length-1;i++){        oinput[i].onclick=function(){      
+                                   var qx = true;    
+                                  for(i=0;i<oinput.length-1;i++){
+                                    if(oinput[i].checked==false){                qx=false       
+                                          }          
+                                            }          
+                                        checkedAll.checked=qx          
+                                            }    
+                                     } 
+                  checkedAll.onclick=function(){    
+                      for(var i=0;i<oinput.length;i++){    
+                       oinput[i].checked=this.checked      
+                               }       
+                         }  
+
+</script>
+</body>
+</html>

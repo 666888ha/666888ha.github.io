@@ -1,0 +1,193 @@
+@charset "UTF-8";
+@a:75rem;
+*{
+	margin:0px;
+	padding:0px;
+}
+::-webkit-scrollbar{
+			width:0px;
+			height: 0px;
+	}
+	a{
+		text-decoration: none;
+		color:white;
+	}
+	// 头部样式
+.head{
+	width: 100%;
+	height:88/@a;
+	background:#f0f0f0;
+	display: flex;
+	justify-content: space-around;
+	position: fixed;
+	top:0/@a;
+	z-index: 9;
+	.p11{
+		width:80%;
+		text-align: center;
+		height:100%;
+		line-height: 88/@a;
+		font-size: 40/@a;
+		font-family: "宋体";
+		color:gray;
+	}
+	.s11{
+		width:20%;
+		height:100%;
+		line-height: 100%;
+	}
+}
+// 轮播样式
+.lun{
+	width: 100%;
+	height:426/@a;
+	position: relative;
+	overflow: hidden;
+	.l1{
+		position: absolute;
+		left: 0px;
+		top:0px;
+		.li1{
+			width: 100%;
+			height: 100%;
+			float:left;
+			list-style: none;
+			a{
+				width: 100%;
+				height:426/@a;
+				img{
+					width: 100%;
+					height:100%;
+				}
+			}
+		}
+	}
+}
+// 精品分类样式
+.leiyong{
+	width: 100%;
+	height:70/@a;
+	display: flex;
+	justify-content: space-around;
+	align-items:center;
+	.s2{
+		font-size: 40/@a;
+		width: 70%;
+		font-family: "宋体";
+		color:gray;
+	}
+	.s3{
+		font-size: 30/@a;
+		font-family: "宋体";
+		width: 12%;
+		color:gray;
+		height:70/@a;
+		line-height: 70/@a;
+		font-family: "宋体";
+	}
+}
+.boss{
+	width:100%;
+	height:240/@a;
+	overflow: auto;
+	.boss1{
+		width:280%;
+		height:100%;
+	}
+	.u1{
+		height:100%;
+		li{
+			width:10%;
+			height:100%;
+			float:left;
+			list-style: none;
+			a{
+				display: flex;
+				justify-content: space-around;
+				flex-wrap:wrap;
+				align-items:space-around;
+				img{
+					height:180/@a;
+				}
+			}
+		a>.s1{
+			width: 100%;
+			color:gray;
+			font-size:25/@a;
+			font-family: "宋体";
+			text-align: center;
+			margin-top:10/@a;
+		}
+		}
+	}
+}
+.tuijian{
+	width:100%;
+	height:680/@a;
+	.t1{
+		width: 100%;
+		height:100%;
+		display: flex;
+		justify-content: space-around;
+		align-items:center;
+		flex-wrap:wrap;
+		li{
+			width:48%;
+			height:330/@a;
+			list-style: none;
+			a{
+				display: flex;
+				justify-content: space-around;
+				align-items:space-around;
+				flex-wrap:wrap;
+				img{
+					height:240/@a;
+					width: 100%;
+				}
+				.zhi1{
+					color:gray;
+					font-size: 30/@a;
+					font-family: "宋体";
+					text-align: center;
+					height:40/@a;
+					margin-top: 10/@a;
+				}
+				.m1{
+					width: 100%;
+					color:red;
+					font-size: 20/@a;
+					font-family: "宋体";
+					text-align: center;
+					height:30/@a;
+					margin-top: 10/@a;
+				}
+			}
+		}
+	}
+}
+// 底部样式
+.dibu{
+	width: 100%;
+	height:98/@a;
+	background:#f0f0f0;
+	position: fixed;
+	bottom: 0/@a;
+	display: flex;
+	justify-content: space-around;
+	align-items:center;
+	.one{
+		width:20%;
+		>a{
+			display: flex;
+			justify-content:center;
+			flex-wrap:wrap;
+			align-items:space-around;
+			p{
+				width: 100%;
+				color:gray;
+				font-size: 30/@a;
+				text-align: center;
+			}
+		}
+	}
+}

@@ -1,0 +1,138 @@
+@charset "UTF-8";
+@a:75rem;
+*{
+	margin:0px;
+	padding:0px;
+}
+a{
+	text-decoration: none;
+	color:white;
+	}
+	// 头部样式
+.head{
+	width: 100%;
+	height:88/@a;
+	display: flex;
+	justify-content: space-around;
+	position: fixed;
+	top:0/@a;
+	z-index: 9;
+	background:white;
+	.p11{
+		width:60%;
+		text-align: center;
+		height:100%;
+		font-size: 40/@a;
+		font-family: "宋体";
+		color:gray;
+		line-height: 88/@a;
+	}
+	.s11{
+		width:20%;
+		height:100%;
+		line-height: 100%;
+		text-align: center;
+	}
+}
+.boss{
+	width:100%;
+	height:458/@a;
+	background: url("../img/zs.jpg") no-repeat;
+	background-size: 100%;
+	display: flex;
+	justify-content: space-around;
+	flex-wrap:wrap;
+	align-items:center;
+	.s1>img{
+		width:259/@a;
+		height:259/@a;
+		border-radius: 50%;
+	}
+	.s2{
+		width: 100%;
+		text-align: center;
+		font-family: "宋体";
+		font-size: 40/@a;
+		color: white;
+	}
+	.s3{
+		width: 100%;
+		text-align: center;
+		font-family: "宋体";
+		font-size: 20/@a;
+		color: white;
+	}
+}
+.one{
+	width: 100%;
+	height:225/@a;
+	display: flex;
+	justify-content: space-around;
+	.bao{
+		width: 19%;
+		height: 100%;
+		display: flex;
+		flex-wrap:wrap;
+		justify-content:space-around;
+		align-items:center;
+		.ss{
+			font-size: 30/@a;
+			font-family: "宋体";
+			text-align: center;
+			color: gray;
+			width: 100%;
+		}
+	}
+}
+.line{
+	width: 100%;
+	height: 2/@a;
+	background: lightgray;
+	display: inline-block;
+}
+.ll{
+	list-style: none;
+	display: flex;
+	justify-content: space-around;
+	.h1{
+		font-family: "宋体";
+		font-size: 30/@a;
+		width: 70%;
+		color: gray;
+	}
+		.h2{
+		font-family: "宋体";
+		font-size: 40/@a;
+		width: 20%;
+		text-align: center;
+	}
+}
+// 底部样式
+.dibu{
+	width: 100%;
+	height:98/@a;
+	background:#f0f0f0;
+	position: fixed;
+	bottom: 0/@a;
+	display: flex;
+	justify-content: space-around;
+	align-items:center;
+	.one{
+		width:20%;
+		height: 100%;
+		>a{
+			display: flex;
+			justify-content:center;
+			flex-wrap:wrap;
+			align-items:space-around;
+			p{
+				width: 100%;
+				color:lightgray;
+				font-size: 30/@a;
+				text-align: center;
+				font-family: "宋体";
+				color:gray;
+			}
+		}
+	}
+}

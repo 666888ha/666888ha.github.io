@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>首页</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <script>
+    var pixelRatio = 1 / window.devicePixelRatio;   
+    document.write('<meta name="viewport" content="width=device-width,initial-scale='+pixelRatio+',minimum-scale='+pixelRatio+',maximum-scale='+pixelRatio+'" />');
+    var html=document.getElementsByTagName('html')[0];
+    var pageWidth=html.getBoundingClientRect().width;
+    html.style.fontSize=(pageWidth/10)*1+"px";           
+  </script>
+  <!-- Link Swiper's CSS -->
+  <link rel="stylesheet" href="css/swiper.css">
+<link rel="stylesheet" href="less/style.css">
+  <!-- Demo styles -->
+</head>
+<body>
+<!-- 头部 -->
+  <div class="head">
+    <span class="p1">家 居</span>
+    <span class="s1"><img src="img/shuo.png" alt=""></span>
+  </div>
+  <!-- 轮播 -->
+  <div class="swiper-container">
+    <div class="swiper-wrapper">
+      <div class="swiper-slide">
+        <a href="">
+          <img src="img/index_style_pano_1@2x.png" alt="">
+        </a>
+      </div>
+      <div class="swiper-slide">
+        <a href="">
+          <img src="img/1.jpg" alt="">
+        </a>
+        
+      </div>
+      <div class="swiper-slide">
+        <a href="">
+          <img src="img/2.jpg" alt="">
+        </a>
+        
+      </div>
+      <div class="swiper-slide">
+        <a href="">
+          <img src="img/index_style_pano_1@2x.png" alt="">
+        </a>
+        
+      </div>
+      <div class="swiper-slide">
+        <a href="">
+          <img src="img/1.jpg" alt="">
+        </a>
+        
+      </div>
+      <div class="swiper-slide">
+        <a href="">
+          <img src="img/2.jpg" alt="">
+        </a>
+      </div>
+    </div>
+    <!-- Add Pagination -->
+    <div class="swiper-pagination"></div>
+    <!-- Add Arrows -->
+<!--     <div class="swiper-button-next"></div>
+    <div class="swiper-button-prev"></div> -->
+  </div>
+
+<!-- 主体内容 -->
+<div class="leiyong">
+  <span class="s2">热门推荐</span>
+  <a href="" class="s3"><span>更多&gt;</span></a>
+</div>
+<ul class="u1">
+  <li><a href=""><img src="img/t4.jpg" alt=""></a></li>
+  <li><a href=""><img src="img/t5.jpg" alt=""></a></li>
+  <li><a href=""><img src="img/t6.jpg" alt=""></a></li>
+</ul>
+<div class="leiyong">
+  <span class="s2">特色</span>
+  <a href="" class="s3"><span>更多&gt;</span></a>
+</div>
+<ol class="o1">
+  <li><a href=""><img src="img/xiari@2x.png" alt=""></a></li>
+  <li><a href=""><img src="img/qiutian@2x.png" alt=""></a></li>
+  <li><a href=""><img src="img/richu@2x.png" alt=""></a></li>
+</ol>
+<div class="leiyong">
+  <span class="s2">热门推荐</span>
+  <a href="" class="s3"><span>更多&gt;</span></a>
+</div>
+<ul class="u1">
+  <li><a href=""><img src="img/t4.jpg" alt=""></a></li>
+  <li><a href=""><img src="img/t5.jpg" alt=""></a></li>
+  <li><a href=""><img src="img/t6.jpg" alt=""></a></li>
+</ul>
+<div class="leiyong">
+  <span class="s2">热门推荐</span>
+  <a href="" class="s3"><span>更多&gt;</span></a>
+</div>
+<ul class="u1">
+  <li><a href=""><img src="img/t4.jpg" alt=""></a></li>
+  <li><a href=""><img src="img/t5.jpg" alt=""></a></li>
+  <li><a href=""><img src="img/t6.jpg" alt=""></a></li>
+</ul>
+<!-- 底部 -->
+<div class="dibu">
+  <div class="one">
+    <a href="index.html">
+      <img src="img/首页@2x.png" alt="">
+      <p>首页</p>
+    </a>
+    </div>
+  <div class="one">
+   <a href="shangchen.html">
+      <img src="img/商城@2x.png" alt="">
+      <p>商城</p>
+    </a>
+  </div>
+  <div class="one">
+   <a href="shop.html">
+      <img src="img/导航-购物车@2x.png" alt="">
+      <p>购物车</p>
+    </a>
+  </div>
+  <div class="one">
+    <a href="my.html">
+      <img src="img/我的@2x.png" alt="">
+      <p>我的</p>
+    </a>
+  </div>
+</div>
+  <!-- Swiper JS -->
+  <script src="js/swiper.js"></script>
+
+  <!-- Initialize Swiper -->
+  <script>
+    var swiper = new Swiper('.swiper-container', {
+      // spaceBetween: 30,
+      centeredSlides: true,
+      loop:true,
+      autoplay: {
+        delay: 2500,
+        disableOnInteraction: false,
+      },
+      pagination: {
+        el: '.swiper-pagination',
+        clickable: true,
+      },
+      navigation: {
+        nextEl: '.swiper-button-next',
+        prevEl: '.swiper-button-prev',
+      },
+    });
+  </script>
+</body>
+</html>

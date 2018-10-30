@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>我的</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <script>
+    var pixelRatio = 1 / window.devicePixelRatio;   
+    document.write('<meta name="viewport" content="width=device-width,initial-scale='+pixelRatio+',minimum-scale='+pixelRatio+',maximum-scale='+pixelRatio+'" />');
+    var html=document.getElementsByTagName('html')[0];
+    var pageWidth=html.getBoundingClientRect().width;
+    html.style.fontSize=(pageWidth/10)*1+"px";           
+  </script>
+	<link rel="stylesheet" href="less/style2.css">
+</head>
+<body>
+	<!-- 头部 -->
+  <div class="head">
+  	<span class="s11"><img src="img/shezhi.jpg" alt=""></span>
+    <span class="p11">我的</span>
+    <span class="s11"><img src="img/xiaoxi.jpg" alt=""></span>
+  </div>
+  <!-- 展示部分 -->
+  <div class="boss">
+  	<span class="s1"><img src="img/toxiang.jpg" alt=""></span>
+  	<span class="s2">萤火</span>
+  	<span class="s3">编辑资料</span>
+  </div>
+  <!-- 导航条 -->
+  <div class="one">
+  	<div class="bao">
+  		<img src="img/f1.jpg" alt="">
+  		<span class="ss">待付款</span>
+  	</div>
+  	<div class="bao">
+  		<img src="img/f2.jpg" alt="">
+  		<span class="ss">待发货</span>
+  	</div>
+  	<div class="bao">
+  		<img src="img/f3.jpg" alt="">
+  		<span class="ss">待收货</span>
+  	</div>
+  	<div class="bao">
+  		<img src="img/f4.jpg" alt="">
+  		<span class="ss">待评价</span>
+  	</div>
+  	<div class="bao">
+  		<img src="img/f5.jpg" alt="">
+  		<span class="ss">待退货</span>
+  	</div>
+  </div>
+  <div class="boss1">
+  	<ul class="uu">
+  	<span class="line"></span>
+  		<li class="ll">
+  			<span class="h1">我的订单</span>
+  			<span class="h2">&gt;</span>
+  		</li>
+  	<span class="line"></span>
+  		<li class="ll">
+  			<span class="h1">我的收藏</span>
+  			<span class="h2">&gt;</span>
+  		</li>
+  	<span class="line"></span>
+  		<li class="ll">
+  			<span class="h1">我的优惠券</span>
+  			<span class="h2">&gt;</span>
+  		</li>
+  	<span class="line"></span>
+  		<li class="ll">
+  			<span class="h1">更多</span>
+  			<span class="h2">&gt;</span>
+  		</li>
+  	<span class="line"></span>
+  	</ul>
+  </div>
+  <!-- 底部 -->
+<div class="dibu">
+  <div class="one">
+    <a href="index.html">
+      <img src="img/首页@2x.png" alt="">
+      <p>首页</p>
+    </a>
+    </div>
+  <div class="one">
+   <a href="shangchen.html">
+      <img src="img/商城@2x.png" alt="">
+      <p>商城</p>
+    </a>
+  </div>
+  <div class="one">
+   <a href="shop.html">
+      <img src="img/导航-购物车@2x.png" alt="">
+      <p>购物车</p>
+    </a>
+  </div>
+  <div class="one">
+    <a href="my.html">
+      <img src="img/我的@2x.png" alt="">
+      <p>我的</p>
+    </a>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>商城</title>
+	<link rel="stylesheet" href="less/style1.css">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<script>
+		var pixelRatio = 1 / window.devicePixelRatio;   
+		document.write('<meta name="viewport" content="width=device-width,initial-scale='+pixelRatio+',minimum-scale='+pixelRatio+',maximum-scale='+pixelRatio+'" />');
+	  var html=document.getElementsByTagName('html')[0];
+		var pageWidth=html.getBoundingClientRect().width;
+		html.style.fontSize=(pageWidth/10)*1+"px";           
+	</script>
+</head>
+<body>
+<!-- 头部 -->
+  <div class="head">
+    <span class="p11">商城</span>
+    <span class="s11"><img src="img/shuo.png" alt=""></span>
+  </div>
+  <!-- 轮播 -->
+  <div class="lun">
+  	<ul class="l1">
+  		<li class="li1"><a href=""><img src="img/s1.jpg" alt=""></a></li>
+  		<li class="li1"><a href=""><img src="img/s2.jpg" alt=""></a></li>
+  		<li class="li1"><a href=""><img src="img/s3.jpg" alt=""></a></li>
+  		<li class="li1"><a href=""><img src="img/s4.jpg" alt=""></a></li>
+  	</ul>
+  </div>
+  <div class="leiyong">
+  <span class="s2">精品分类</span>
+  <a href="" class="s3"><span>更多&gt;</span></a>
+</div>
+	<div class="boss">
+		<div class="boss1">
+			<ul class="u1">
+				<li>
+					<a href="">
+						<img src="img/w1.jpg" alt="">
+						<span class="s1">沙 发</span>
+					</a>
+				</li>
+				<li>
+					<a href="">
+						<img src="img/w2.jpg" alt="">
+						<span class="s1">灯具</span>
+					</a>
+				</li>
+				<li>
+					<a href="">
+						<img src="img/w3.jpg" alt="">
+						<span class="s1">沙 发</span>
+					</a>
+				</li>
+				<li>
+					<a href="">
+						<img src="img/w4.jpg" alt="">
+						<span class="s1">沙 发</span>
+					</a>
+				</li>
+				<li>
+					<a href="">
+						<img src="img/w5.jpg" alt="">
+						<span class="s1">沙 发</span>
+					</a>
+				</li>
+				<li>
+					<a href="">
+						<img src="img/w3.jpg" alt="">
+						<span class="s1">沙 发</span>
+					</a>
+				</li>
+				<li>
+					<a href="">
+						<img src="img/w4.jpg" alt="">
+						<span class="s1">沙 发</span>
+					</a>
+				</li>
+				<li>
+					<a href="">
+						<img src="img/w5.jpg" alt="">
+						<span class="s1">沙 发</span>
+					</a>
+				</li>
+				<li>
+					<a href="">
+						<img src="img/w3.jpg" alt="">
+						<span class="s1">沙 发</span>
+					</a>
+				</li>
+				<li>
+					<a href="">
+						<img src="img/w4.jpg" alt="">
+						<span class="s1">椅子</span>
+					</a>
+				</li>
+			</ul>
+		</div>
+	</div>
+	<div class="leiyong">
+  		<span class="s2">商品推荐</span>
+ 		 <a href="" class="s3">
+ 		 	<span>更多&gt;</span>
+ 		 </a>
+	</div>
+	<div class="tuijian">
+		<ul class="t1">
+			<li>
+				<a href="">
+					<img src="img/j6.jpg" alt="">
+					<span class="zhi1">天鹅倒影电视柜</span>
+					<small class="m1">￥7888.00</small>
+				</a>
+			</li>
+			<li>
+				<a href="">
+					<img src="img/j3.jpg" alt="">
+					<span class="zhi1">天鹅倒影斗柜</span>
+					<small class="m1">￥2800.00</small>
+				</a>
+			</li>
+			<li>
+				<a href="">
+					<img src="img/j4.jpg" alt="">
+					<span class="zhi1">天鹅倒影三人沙发</span>
+					<small class="m1">￥7888.00</small>
+				</a>
+			</li>
+			<li>
+				<a href="">
+					<img src="img/j5.jpg" alt="">
+					<span class="zhi1">马丁系列-M302a餐桌</span>
+					<small class="m1">￥12000</small>
+				</a>
+			</li>
+		</ul>
+	</div>
+	<!-- dibu -->
+	<div class="dibu">
+  <div class="one">
+    <a href="index.html">
+      <img src="img/首页@2x.png" alt="">
+      <p>首页</p>
+    </a>
+    </div>
+  <div class="one">
+   <a href="shangchen.html">
+      <img src="img/商城@2x.png" alt="">
+      <p>商城</p>
+    </a>
+  </div>
+  <div class="one">
+   <a href="shop.html">
+      <img src="img/导航-购物车@2x.png" alt="">
+      <p>购物车</p>
+    </a>
+  </div>
+  <div class="one">
+    <a href="my.html">
+      <img src="img/我的@2x.png" alt="">
+      <p>我的</p>
+    </a>
+  </div>
+</div>
+	<script>
+	var Oul=document.getElementsByClassName('l1')[0];
+	var Oli=document.getElementsByClassName('li1');
+	Oul.innerHTML+=Oul.innerHTML;
+	Oul.offsetWidth=Oli.length*Oli.offsetWidth;
+	var shudu;
+	function move (shudu)
+	{
+		Oul.style.left=Oul.offsetLeft+shudu+'px';
+		if(Oul.offsetLeft<-Oul.offsetWidth/2)
+		{
+			Oul.style.left=0;
+			Oul.style.transition=0+'s';}
+	}
+	setInterval("move(-750)",3000);
+</script>
+</body>
+</html>
