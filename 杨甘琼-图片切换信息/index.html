@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>图片切换信息</title>
+	<script src="jquery-3.2.1.min.js"></script>
+	<style>
+		*{
+			padding:0px;
+			margin:0px;
+		}
+		.boss{
+			width: 50%;
+			height:530px;
+			margin: 20px auto;
+			background:white;
+		}
+		ul{
+			width:100%;
+			height:100%;
+			display: flex;
+			justify-content:space-around;
+			flex-wrap: wrap;
+		}
+		li{
+			width:474px;
+			height:262px;
+			list-style: none;
+			background: red;
+			display: flex;
+			justify-content:space-around;
+			flex-wrap: wrap;
+			position: relative;
+			overflow: hidden;
+		}
+		li>.a1>img{
+			width:474px;
+			height:262px;
+		}
+		.dibu{
+			width:91%;
+			height:60px;
+			background:lightgray;
+			position: absolute;
+			bottom:0px;
+			left:0px;
+			padding:10px 5%;
+		}
+		.tishi>.p2{
+			position: absolute;
+			bottom:-80px;
+			left:-80px;
+		}
+		.tishi>.p1{
+			position: absolute;
+			top:100px;
+			left:-80px;
+		}
+		.tishi{
+			width:100%;
+			height:100%;
+			position: absolute;
+			bottom:0px;
+			left:-474px;
+			display: flex;
+			justify-content:space-around;
+			flex-wrap: wrap;
+			background:rgba(0,0,0,0.3);
+		}
+		.dibu>.p1{
+			float:left;
+			font-size: 14px;
+		}
+		.dibu>.p2{
+			float:right;
+		}
+	</style>
+</head>
+<body>
+	<div class="boss">
+		<ul>
+			<li class="box1">
+				<a href="" class='a1'>
+					<img src="img/10556208_161709842590030.jpg" alt="">
+					<div class="dibu">
+					<p class="to">迪拜六日跟团游</p>
+					<p class="p1">香港直飞+精选阿联酋航空(MHAH456)+当晚抵达全....</p>
+					<p class="p2"><span class="p21">￥</span>600</p>
+					</div>
+				</a>
+				<a href="" class="a2">
+					<div class="tishi">
+					<p class="to">迪拜六日跟团游</p>
+					<p class="p1">香港直飞+精选阿联酋航空(MHAH456)+当晚抵达全....</p>
+					<p class="p2"><span class="p21">￥</span>600</p>
+					</div>
+				</a>
+			</li>
+			<li class="box1">
+				<a href="" class='a1'>
+					<img src="img/2.jpg" alt="">
+					<div class="dibu">
+					<p class="to">迪拜六日跟团游</p>
+					<p class="p1">香港直飞+精选阿联酋航空(MHAH456)+当晚抵达全....</p>
+					<p class="p2"><span class="p21">￥</span>600</p>
+					</div>
+				</a>
+				<a href="" class="a2">
+					<div class="tishi">
+					<p class="to">迪拜六日跟团游</p>
+					<p class="p1">香港直飞+精选阿联酋航空(MHAH456)+当晚抵达全....</p>
+					<p class="p2"><span class="p21">￥</span>600</p>
+					</div>
+				</a>
+			</li>
+			<li class="box1">
+					<a href="" class='a1'>
+					<img src="img/3.jpg" alt="">
+					<div class="dibu">
+					<p class="to">迪拜六日跟团游</p>
+					<p class="p1">香港直飞+精选阿联酋航空(MHAH456)+当晚抵达全....</p>
+					<p class="p2"><span class="p21">￥</span>600</p>
+					</div>
+				</a>
+				<a href="" class="a2">
+					<div class="tishi">
+					<p class="to">迪拜六日跟团游</p>
+					<p class="p1">香港直飞+精选阿联酋航空(MHAH456)+当晚抵达全....</p>
+					<p class="p2"><span class="p21">￥</span>600</p>
+					</div>
+				</a>
+			</li>
+			<li class="box1">
+					<a href="" class='a1'>
+					<img src="img/4.jpg" alt="">
+					<div class="dibu">
+					<p class="to">迪拜六日跟团游</p>
+					<p class="p1">香港直飞+精选阿联酋航空(MHAH456)+当晚抵达全....</p>
+					<p class="p2"><span class="p21">￥</span>600</p>
+					</div>
+				</a>
+				<a href="" class="a2">
+					<div class="tishi">
+					<p class="to">迪拜六日跟团游</p>
+					<p class="p1">香港直飞+精选阿联酋航空(MHAH456)+当晚抵达全....</p>
+					<p class="p2"><span class="p21">￥</span>600</p>
+					</div>
+				</a>
+			</li>
+		</ul>
+	</div>
+	<script>
+		$(".box1").hover(function(){
+			$(".tishi").eq($(this).index()).css({
+			left:"0px",
+			transition:"left 1s"
+			})
+			$(".dibu").eq($(this).index()).css({
+			bottom:"-80px",
+			transition:"bottom 1s"
+			})
+			$(".tishi>.p2").eq($(this).index()).css({
+				bottom:"40px",
+				"left":"0px",
+				transition:"bottom 3s"
+			})
+			$(".tishi>.p1").eq($(this).index()).css({
+				"top":"100px",
+				"left":"20px",
+				transition:"left 2s"
+			})
+		},
+			function(){
+			$(".tishi").eq($(this).index()).css({
+			left:"-474px",
+			})
+			$(".dibu").eq($(this).index()).css({
+			bottom:"0px",
+			})
+			$(".tishi>.p2").eq($(this).index()).css({
+				bottom:"-80px",
+				"left":"-80px",
+			})
+			$(".tishi>.p1").eq($(this).index()).css({
+				"top":"100px",
+				"left":"-80px",
+			})
+		}
+		)
+	</script>
+</body>
+</html>
