@@ -17,6 +17,9 @@ lib/
 dist/
 typings/
 
+# 自定义构建输出目录（勿提交）
+senpucrm/
+
 _site
 package
 tmp*

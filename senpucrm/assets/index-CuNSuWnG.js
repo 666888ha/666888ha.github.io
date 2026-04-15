@@ -1,2 +1,0 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./index-ezPE9SoK.js","./index-CdvN5_50.js","./index-BqWFUmqS.css","./index-k1r6vras.js","./index-SqiNUTl4.css"])))=>i.map(i=>d[i]);
-import{d as o,e as r,m as t,p,s as a,o as n}from"./index-CdvN5_50.js";const c=o({name:"WorkReportApproveDetail",__name:"index",setup(s){const e=p(()=>a(()=>import("./index-ezPE9SoK.js"),__vite__mapDeps([0,1,2,3,4]),import.meta.url));return(_,i)=>(n(),r(t(e),{"is-approve":!0}))}});export{c as default};

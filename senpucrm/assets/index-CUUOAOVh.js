@@ -1,2 +1,0 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./index-BOrAnZ9B.js","./index-CdvN5_50.js","./index-BqWFUmqS.css","./customer--DgXGe-U.js","./index-SkjYpb0-.css"])))=>i.map(i=>d[i]);
-import{d as o,e as r,m as t,p as a,s,o as n}from"./index-CdvN5_50.js";const c=o({name:"CustomerApproveDetail",__name:"index",setup(p){const e=a(()=>s(()=>import("./index-BOrAnZ9B.js"),__vite__mapDeps([0,1,2,3,4]),import.meta.url));return(_,m)=>(n(),r(t(e),{"is-approve":!1}))}});export{c as default};

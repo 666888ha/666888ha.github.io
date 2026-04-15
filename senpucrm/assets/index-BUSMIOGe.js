@@ -1,1 +1,0 @@
-import{C as s}from"./index-CdvN5_50.js";const r=o=>s.get({url:"/api/approval/todo-list",params:o||{},requestOptions:{isTransformResponse:!1,withToken:!0}}),e=o=>s.post({url:"/api/approval/todo-list",data:o||{},requestOptions:{isTransformResponse:!1,withToken:!0}});export{r as g,e as p};

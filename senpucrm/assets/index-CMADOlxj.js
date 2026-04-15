@@ -1,1 +1,0 @@
-import{l as s,b as r,M as a,a as n,e as u,o as c}from"./index-CdvN5_50.js";import{A as i}from"./add-CCTfjyOk.js";import"./customer--DgXGe-U.js";import"./area-B9rZ425e.js";const g={__name:"index",setup(p){const o=r(),t=n();return s(()=>{const{customer_id:e}=o.query;e&&typeof e=="string"||(a.warning("缺少客户ID参数，将返回列表页"),t.back())}),(e,m)=>(c(),u(i))}};export{g as default};
