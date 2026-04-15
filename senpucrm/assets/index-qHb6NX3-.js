@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./index-CHEs4W5Y.js","./index-CdvN5_50.js","./index-BqWFUmqS.css","./index-968Of7ZK.js","./ruoyi-CKSXsaHm.js","./index-BWAUUFaM.css"])))=>i.map(i=>d[i]);
+import{d as o,e as t,m as a,p as n,s as r,o as p}from"./index-CdvN5_50.js";const c=o({name:"QuotationApproveDetail",__name:"index",setup(s){const e=n(()=>r(()=>import("./index-CHEs4W5Y.js"),__vite__mapDeps([0,1,2,3,4,5]),import.meta.url));return(_,i)=>(p(),t(a(e),{"is-approve":!1}))}});export{c as default};

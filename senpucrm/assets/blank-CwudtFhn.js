@@ -1,0 +1,1 @@
+import{_ as o,c as t,h as c,o as r,f as s}from"./index-CdvN5_50.js";const n={},a={class:"tdesign-wrapper"};function _(d,p){const e=t("router-view");return r(),c("div",a,[s(e)])}const f=o(n,[["render",_],["__scopeId","data-v-d2d85c5e"]]);export{f as default};

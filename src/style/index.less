@@ -1,0 +1,35 @@
+@import './font-family.less';
+@import './reset.less';
+
+/* 客户名称文本溢出省略 */
+.customer-name-container {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  .customer-name-link {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+// 列表 审批状态样式控制
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #999;
+  display: inline-block;
+  &.status-0 {
+    background-color: #ffa940;
+  }
+
+  &.status-1 {
+    background-color: #00a870;
+  }
+  &.status-2 {
+    background-color: #ff4d4f;
+  }
+}

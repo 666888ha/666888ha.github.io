@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./addItem-CNrR1duR.js","./index-CdvN5_50.js","./index-BqWFUmqS.css","./index--iSJiX2f.js","./index-BKeVhVHO.js","./addItem-DOmbcCk2.css"])))=>i.map(i=>d[i]);
+import{d as o,e as t,m as n,p as a,s as r,o as _}from"./index-CdvN5_50.js";const p=o({__name:"index",setup(s){const e=a(()=>r(()=>import("./addItem-CNrR1duR.js"),__vite__mapDeps([0,1,2,3,4,5]),import.meta.url));return(d,m)=>(_(),t(n(e),{mode:"add"}))}});export{p as default};

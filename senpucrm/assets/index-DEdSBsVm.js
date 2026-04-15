@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./index-0EHCjezY.js","./index-CdvN5_50.js","./index-BqWFUmqS.css","./customer--DgXGe-U.js","./index-C1X_55uL.css"])))=>i.map(i=>d[i]);
+import{d as o,e as p,m as a,p as r,s as t,o as n}from"./index-CdvN5_50.js";const m=o({name:"FollowUpApproveDetail",__name:"index",setup(s){const e=r(()=>t(()=>import("./index-0EHCjezY.js"),__vite__mapDeps([0,1,2,3,4]),import.meta.url));return(_,i)=>(n(),p(a(e),{"is-approve":!1}))}});export{m as default};
