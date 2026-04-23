@@ -465,7 +465,7 @@ const handleApprove = () => {
     return;
   }
   if (approveSuccessDialogRef.value) {
-    approveSuccessDialogRef.value.show(id);
+    void approveSuccessDialogRef.value.show(id, contractDetail.value?.owner_user_id);
   }
 };
 

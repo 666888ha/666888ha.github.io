@@ -19,6 +19,45 @@ export function getContractList(params?: any) {
   } as any);
 }
 
+/** 合同列表导出 CSV（筛选与 list 一致；可传 ids 仅导出选中） */
+export function exportContractList(params?: Record<string, any> & { ids?: string }) {
+  return request.get<Blob>({
+    url: '/api/customer-contract/export',
+    params: params || {},
+    responseType: 'blob',
+    requestOptions: {
+      isTransformResponse: false,
+      withToken: true,
+    },
+  } as any);
+}
+
+/** 合同导入模板 CSV */
+export function downloadContractImportTemplate() {
+  return request.get<Blob>({
+    url: '/api/customer-contract/import-template',
+    responseType: 'blob',
+    requestOptions: {
+      isTransformResponse: false,
+      withToken: true,
+    },
+  } as any);
+}
+
+/** 合同 CSV 导入 */
+export function importContractCsv(file: File) {
+  const fd = new FormData();
+  fd.append('file', file);
+  return request.post<any>({
+    url: '/api/customer-contract/import',
+    data: fd,
+    requestOptions: {
+      isTransformResponse: false,
+      withToken: true,
+    },
+  } as any);
+}
+
 /**
  * 添加合同
  * @param {any} data 合同数据

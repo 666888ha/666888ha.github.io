@@ -27,7 +27,7 @@
         </div>
       </div>
       <div v-if="!collapsed && showSecondary" class="secondary-panel">
-        <SecondaryPanelNav :items="secondaryItems" />
+        <SecondaryPanelNav :items="secondaryItems" :hover-flyout="secondaryHoverFlyout" />
       </div>
     </div>
   </div>
@@ -45,6 +45,7 @@ import {
   buildMenuList,
   getFirstLeafPath,
   getPrimaryPathForCurrentRoute,
+  isNavGroup,
   type NavListItem,
 } from '@/utils/menuNav';
 
@@ -113,6 +114,13 @@ const secondaryItems = computed(() => {
   if (!p?.children?.length || p.meta?.single) return [];
   return p.children;
 });
+
+/** 销售统计下页面较多：二级项悬停时在右侧展示三级浮层（与示意图一致） */
+const secondaryHoverFlyout = computed(
+  () =>
+    primaryPath.value === '/salesStatistics' &&
+    secondaryItems.value.some((item) => isNavGroup(item)),
+);
 
 const sidebarWidthPx = computed(() => {
   if (collapsed.value) return 72;

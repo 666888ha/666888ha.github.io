@@ -56,7 +56,15 @@
           导出
         </t-button>
       </div>
-      <t-table :data="tableRows" :columns="tableColumns" row-key="rowKey" size="medium" bordered stripe>
+      <t-table
+        :data="tableRows"
+        :columns="tableColumns"
+        row-key="rowKey"
+        size="medium"
+        bordered
+        stripe
+        :loading="loadingData"
+      >
         <template #time="{ row }">
           <t-link theme="primary" @click.prevent>{{ row.time }}</t-link>
         </template>
@@ -109,8 +117,11 @@ import type { PrimaryTableCol } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getGoalCompletion } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { statisticsScope } from '../statisticsRequest';
 
 defineOptions({
   name: 'PerformanceGoalCompletion',
@@ -122,24 +133,6 @@ type GoalTab = 'deal' | 'collection' | 'customer' | 'follow';
 
 const BLUE = '#5eadf5';
 const GREEN = '#2ec7a6';
-
-const MOCK_TARGET_MONEY = 1_000_000;
-const MOCK_ACTUAL_MONEY = 1_200_000;
-const MOCK_RATE_PCT = '120%';
-const MOCK_CONTRACTS = 200;
-const MOCK_AVG_PRICE = 100_000;
-const MOCK_QTY = 10_000;
-const MOCK_RATE_QTY = '100%';
-
-/** 成交金额：6 月示意 152万 / 215万 */
-const DEAL_TARGET_MONTHLY = [
-  980_000, 990_000, 1_050_000, 1_100_000, 1_200_000, 1_520_000, 1_300_000, 1_280_000, 1_250_000, 1_220_000,
-  1_180_000, 1_150_000,
-];
-const DEAL_ACTUAL_MONTHLY = [
-  1_100_000, 1_150_000, 1_200_000, 1_400_000, 1_600_000, 2_150_000, 1_800_000, 1_700_000, 1_650_000, 1_600_000,
-  1_550_000, 1_500_000,
-];
 
 const currentYear = dayjs().year();
 const yearOptions = Array.from({ length: 12 }, (_, i) => {
@@ -177,34 +170,22 @@ function monthLabels(year: number) {
   return Array.from({ length: 12 }, (_, i) => `${year}年${i + 1}月`);
 }
 
-function buildMoneySeries() {
-  return { target: [...DEAL_TARGET_MONTHLY], actual: [...DEAL_ACTUAL_MONTHLY] };
-}
-
-function buildCollectionSeries() {
-  const { target, actual } = buildMoneySeries();
-  return {
-    target,
-    actual: actual.map((v, i) => Math.round(v * 0.92 + i * 8000)),
-  };
-}
-
-/** 图表 Y 轴 0～3000，与示意图一致；表格仍为汇总 mock 10000 */
-function buildQtySeries() {
-  const target = Array.from({ length: 12 }, (_, i) => 800 + i * 100 + (i % 4) * 40);
-  const actual = Array.from({ length: 12 }, (_, i) => 950 + i * 110 + (i % 3) * 55);
-  return { target, actual };
-}
+const summaryFromApi = ref<{ target?: number; actual?: number; rate?: string } | null>(null);
 
 const summaryLine = computed(() => {
+  const s = summaryFromApi.value;
+  if (!s) return '—';
+  const tgt = Number(s.target) || 0;
+  const act = Number(s.actual) || 0;
+  const rate = s.rate ?? '0%';
   switch (activeTab.value) {
     case 'deal':
-      return `目标金额：${formatMoney(MOCK_TARGET_MONEY)}，成交金额：${formatMoney(MOCK_ACTUAL_MONEY)}，完成率：${MOCK_RATE_PCT}`;
+      return `目标金额：${formatMoney(tgt)}，成交金额：${formatMoney(act)}，完成率：${rate}`;
     case 'collection':
-      return `目标金额：${formatMoney(MOCK_TARGET_MONEY)}，回款金额：${formatMoney(MOCK_ACTUAL_MONEY)}，完成率：${MOCK_RATE_PCT}`;
+      return `目标金额：${formatMoney(tgt)}，回款金额：${formatMoney(act)}，完成率：${rate}`;
     case 'customer':
     case 'follow':
-      return `目标数量：${formatQty(MOCK_QTY)}，完成数量：${formatQty(MOCK_QTY)}，完成率：${MOCK_RATE_QTY}`;
+      return `目标数量：${formatQty(tgt)}，完成数量：${formatQty(act)}，完成率：${rate}`;
     default:
       return '';
   }
@@ -236,41 +217,72 @@ interface QtyTableRow {
   rate: string;
 }
 
-function buildDealRows(year: number): DealTableRow[] {
-  return Array.from({ length: 12 }, (_, i) => ({
-    rowKey: `d-${i}`,
-    time: `${year}-${String(i + 1).padStart(2, '0')}`,
-    target: MOCK_TARGET_MONEY,
-    actual: MOCK_ACTUAL_MONEY,
-    contracts: MOCK_CONTRACTS,
-    rate: MOCK_RATE_PCT,
-    avgPrice: MOCK_AVG_PRICE,
-  }));
-}
+const dealRows = ref<DealTableRow[]>([]);
+const collectionRows = ref<CollectionTableRow[]>([]);
+const customerRows = ref<QtyTableRow[]>([]);
+const followRows = ref<QtyTableRow[]>([]);
 
-function buildCollectionRows(year: number): CollectionTableRow[] {
-  return Array.from({ length: 12 }, (_, i) => ({
-    rowKey: `c-${i}`,
-    time: `${year}-${String(i + 1).padStart(2, '0')}`,
-    target: MOCK_TARGET_MONEY,
-    actual: MOCK_ACTUAL_MONEY,
-    rate: MOCK_RATE_PCT,
-  }));
-}
+const loadingData = ref(false);
 
-function buildQtyRows(year: number): QtyTableRow[] {
-  return Array.from({ length: 12 }, (_, i) => ({
-    rowKey: `q-${i}`,
-    time: `${year}-${String(i + 1).padStart(2, '0')}`,
-    target: MOCK_QTY,
-    actual: MOCK_QTY,
-    rate: MOCK_RATE_QTY,
-  }));
+async function fetchGoal() {
+  loadingData.value = true;
+  try {
+    const res = await getGoalCompletion({
+      ...statisticsScope(filters.value.deptId, filters.value.userId),
+      tab: activeTab.value,
+      year: filters.value.year,
+    });
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || '加载失败');
+      return;
+    }
+    const d = res.data || {};
+    const list = (d.list || []) as any[];
+    const tab = activeTab.value;
+    if (tab === 'deal') {
+      dealRows.value = list.map((r, i) => ({
+        rowKey: String(r.row_key ?? `d-${i}`),
+        time: r.time,
+        target: Number(r.target) || 0,
+        actual: Number(r.actual) || 0,
+        contracts: Number(r.contracts) || 0,
+        rate: String(r.rate ?? '0%'),
+        avgPrice: Number(r.avg_price) || 0,
+      }));
+    } else if (tab === 'collection') {
+      collectionRows.value = list.map((r, i) => ({
+        rowKey: String(r.row_key ?? `c-${i}`),
+        time: r.time,
+        target: Number(r.target) || 0,
+        actual: Number(r.actual) || 0,
+        rate: String(r.rate ?? '0%'),
+      }));
+    } else if (tab === 'customer') {
+      customerRows.value = list.map((r, i) => ({
+        rowKey: String(r.row_key ?? `u-${i}`),
+        time: r.time,
+        target: Number(r.target) || 0,
+        actual: Number(r.actual) || 0,
+        rate: String(r.rate ?? '0%'),
+      }));
+    } else {
+      followRows.value = list.map((r, i) => ({
+        rowKey: String(r.row_key ?? `q-${i}`),
+        time: r.time,
+        target: Number(r.target) || 0,
+        actual: Number(r.actual) || 0,
+        rate: String(r.rate ?? '0%'),
+      }));
+    }
+    summaryFromApi.value = d.summary || null;
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
+  }
 }
-
-const dealRows = ref<DealTableRow[]>(buildDealRows(currentYear));
-const collectionRows = ref<CollectionTableRow[]>(buildCollectionRows(currentYear));
-const qtyRows = ref<QtyTableRow[]>(buildQtyRows(currentYear));
 
 const tableRows = computed(() => {
   switch (activeTab.value) {
@@ -279,8 +291,9 @@ const tableRows = computed(() => {
     case 'collection':
       return collectionRows.value;
     case 'customer':
+      return customerRows.value;
     case 'follow':
-      return qtyRows.value;
+      return followRows.value;
     default:
       return [];
   }
@@ -324,28 +337,26 @@ function renderChart() {
 
   let targetName = '目标金额';
   let actualName = '成交金额';
-  let yMax = 3_000_000;
-  let yInterval = 500_000;
   let targetData: number[] = [];
   let actualData: number[] = [];
 
   if (tab === 'deal') {
-    const s = buildMoneySeries();
-    targetData = s.target;
-    actualData = s.actual;
+    targetData = dealRows.value.map((r) => r.target);
+    actualData = dealRows.value.map((r) => r.actual);
   } else if (tab === 'collection') {
-    const s = buildCollectionSeries();
-    targetData = s.target;
-    actualData = s.actual;
+    targetData = collectionRows.value.map((r) => r.target);
+    actualData = collectionRows.value.map((r) => r.actual);
     actualName = '回款金额';
+  } else if (tab === 'customer') {
+    targetName = '目标数量';
+    actualName = '完成数量';
+    targetData = customerRows.value.map((r) => r.target);
+    actualData = customerRows.value.map((r) => r.actual);
   } else {
     targetName = '目标数量';
     actualName = '完成数量';
-    yMax = 3000;
-    yInterval = 500;
-    const s = buildQtySeries();
-    targetData = s.target;
-    actualData = s.actual;
+    targetData = followRows.value.map((r) => r.target);
+    actualData = followRows.value.map((r) => r.actual);
   }
 
   const isMoney = tab === 'deal' || tab === 'collection';
@@ -381,8 +392,7 @@ function renderChart() {
       yAxis: {
         type: 'value',
         min: 0,
-        max: yMax,
-        interval: yInterval,
+        scale: true,
         splitLine: {
           lineStyle: { type: 'dashed', color: '#e5e6eb' },
         },
@@ -456,20 +466,12 @@ async function loadUserOptions() {
   }
 }
 
-function refreshTableData() {
-  const y = filters.value.year;
-  dealRows.value = buildDealRows(y);
-  collectionRows.value = buildCollectionRows(y);
-  qtyRows.value = buildQtyRows(y);
-}
-
 function handleTabChange() {
-  nextTick(() => renderChart());
+  void fetchGoal();
 }
 
 function handleSearch() {
-  refreshTableData();
-  nextTick(() => renderChart());
+  void fetchGoal();
 }
 
 function handleReset() {
@@ -478,8 +480,7 @@ function handleReset() {
     deptId: undefined,
     userId: undefined,
   };
-  refreshTableData();
-  nextTick(() => renderChart());
+  void fetchGoal();
 }
 
 function handleExport() {
@@ -514,8 +515,7 @@ function handleExport() {
 watch(
   () => filters.value.year,
   () => {
-    refreshTableData();
-    nextTick(() => renderChart());
+    void fetchGoal();
   },
 );
 
@@ -524,10 +524,9 @@ watch(winWidth, () => {
 });
 
 onMounted(() => {
-  nextTick(() => renderChart());
-  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
-    nextTick(() => chartInstance?.resize());
-  });
+  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() =>
+    void fetchGoal().then(() => nextTick(() => chartInstance?.resize())),
+  );
 });
 
 onUnmounted(() => {

@@ -90,16 +90,8 @@
         <t-tooltip content="当对列表客户写跟进时,会自动将刚刚写过跟进的客户排到最后。" :show-arrow="false">
           <t-icon name="help-circle" />
         </t-tooltip>
-        <t-tooltip content="排序">
-          <t-button theme="default" variant="outline" @click="clickOper(5)">
-            <template #icon>
-              <t-icon name="swap" />
-            </template>
-            排序
-          </t-button>
-        </t-tooltip>
         <t-tooltip content="列表">
-          <t-button theme="default" variant="outline" @click="clickOper(6)">
+          <t-button theme="default" variant="outline" @click="clickOper(5)">
             <template #icon>
               <t-icon name="view-list" />
             </template>
@@ -188,9 +180,32 @@
         />
       </div>
     </div>
-    <!-- 导入导出 -->
-    <baseImport ref="listImport" />
-    <baseExport ref="listExport" />
+    <!-- 导入客户（CSV） -->
+    <t-dialog
+      v-model:visible="importVisible"
+      header="导入客户（CSV）"
+      width="560px"
+      :confirm-btn="{ content: '开始导入', loading: importSubmitting }"
+      @confirm="handleImportConfirm"
+    >
+      <div class="import-dialog-body">
+        <p class="import-tip">
+          请使用 UTF-8 编码的 CSV（Excel 可选「CSV UTF-8（逗号分隔）」另存）。表头需与模板一致，单次最多约 3000 行。
+        </p>
+        <t-space>
+          <t-button theme="primary" variant="outline" :loading="importTemplateLoading" @click="handleDownloadImportTemplate">
+            下载导入模板
+          </t-button>
+        </t-space>
+        <t-upload
+          v-model:files="importFiles"
+          class="import-upload"
+          accept=".csv,.txt"
+          :max="1"
+          :auto-upload="false"
+        />
+      </div>
+    </t-dialog>
     <!-- 移入公海 -->
     <moveToPublicSea ref="moveSea" :is-multiple="isMultiple" @success="handleMoveToPublicSeaSuccess" />
     <!-- 自定义列弹框 -->
@@ -211,7 +226,13 @@ import { defineAsyncComponent, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import type { CustomerListItem } from '@/api/customer/customer';
-import { deleteCustomer, getCustomerList } from '@/api/customer/customer';
+import {
+  deleteCustomer,
+  downloadCustomerImportTemplate,
+  exportCustomerList,
+  getCustomerList,
+  importCustomerCsv,
+} from '@/api/customer/customer';
 import { getDictOptions } from '@/api/dic';
 import { getApprovalStatusText, parseTime } from '@/utils/ruoyi';
 
@@ -219,14 +240,14 @@ defineOptions({
   name: 'CustomerList',
 });
 const CustomColumnDialog = defineAsyncComponent(() => import('@/components/BaseCustomColumn/index.vue'));
-const baseImport = defineAsyncComponent(() => import('@/components/baseImport/index.vue'));
-const baseExport = defineAsyncComponent(() => import('@/components/baseExport/index.vue'));
 const moveToPublicSea = defineAsyncComponent(() => import('../components/openSeaDialog.vue'));
 
 const router = useRouter();
 const moveSea = ref(null);
-const listImport = ref(null);
-const listExport = ref(null);
+const importVisible = ref(false);
+const importSubmitting = ref(false);
+const importTemplateLoading = ref(false);
+const importFiles = ref<any[]>([]);
 const customColumnDialogRef = ref(null);
 // 标签页
 const activeTab = ref('all');
@@ -599,12 +620,11 @@ const clickOper = (type: number, row) => {
       });
       break;
     case 2: // 导入
-      MessagePlugin.info('导入功能开发中');
-      // listImport.value.show();
+      importFiles.value = [];
+      importVisible.value = true;
       break;
     case 3: // 导出
-      MessagePlugin.info('导出功能开发中');
-      // listExport.value.openExportProgress();
+      triggerExportCustomers();
       break;
     case 4: {
       // 移入公海
@@ -619,10 +639,7 @@ const clickOper = (type: number, row) => {
       break;
     }
 
-    case 5: // 排序
-      MessagePlugin.info('排序功能开发中');
-      break;
-    case 6: // 列表
+    case 5: // 列表
       if (customColumnDialogRef.value) {
         customColumnDialogRef.value.show();
       }
@@ -693,33 +710,121 @@ const handlePageSizeChange = (pageSize: number) => {
   loadTableData();
 };
 
+/** 若后端返回 JSON 错误，Blob 需按文本解析 */
+async function saveBlobAsDownload(blob: Blob, filename: string) {
+  if (blob.type && (blob.type.includes('application/json') || blob.type.includes('text/json'))) {
+    const text = await blob.text();
+    try {
+      const j = JSON.parse(text);
+      throw new Error((j as any)?.msg || (j as any)?.message || '导出失败');
+    } catch (e: any) {
+      if (e?.message === '导出失败' || e?.message?.includes('失败')) {
+        throw e;
+      }
+      throw new Error(text.slice(0, 200));
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function handleDownloadImportTemplate() {
+  importTemplateLoading.value = true;
+  try {
+    const blob = await downloadCustomerImportTemplate();
+    await saveBlobAsDownload(blob, '客户导入模板.csv');
+    MessagePlugin.success('模板已下载');
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '模板下载失败');
+  } finally {
+    importTemplateLoading.value = false;
+  }
+}
+
+function buildListQueryParams(): Record<string, any> {
+  const params: Record<string, any> = {
+    type: activeTab.value,
+    page: pagination.value.current,
+    limit: pagination.value.pageSize,
+  };
+  if (searchForm.value.keyword) {
+    params.keyword = searchForm.value.keyword.trim();
+  }
+  if (searchForm.value.customer_jieduan) {
+    params.customer_jieduan = searchForm.value.customer_jieduan;
+  }
+  if (searchForm.value.customer_type) {
+    params.customer_type = searchForm.value.customer_type;
+  }
+  if (searchForm.value.industry) {
+    params.industry = searchForm.value.industry;
+  }
+  if (searchForm.value.value_level) {
+    params.value_level = searchForm.value.value_level;
+  }
+  return params;
+}
+
+async function triggerExportCustomers() {
+  tableLoading.value = true;
+  try {
+    const params = buildListQueryParams();
+    delete params.page;
+    delete params.limit;
+    if (selectedRowKeys.value.length > 0) {
+      params.ids = selectedRowKeys.value.join(',');
+    }
+    const blob = await exportCustomerList(params as any);
+    await saveBlobAsDownload(blob, `客户列表导出_${Date.now()}.csv`);
+    MessagePlugin.success('导出已开始下载');
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '导出失败');
+  } finally {
+    tableLoading.value = false;
+  }
+}
+
+async function handleImportConfirm() {
+  const f = importFiles.value?.[0]?.raw as File | undefined;
+  if (!f) {
+    MessagePlugin.warning('请先选择 CSV 文件');
+    return Promise.reject(new Error('no file'));
+  }
+  importSubmitting.value = true;
+  try {
+    const res: any = await importCustomerCsv(f);
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || res.message || '导入失败');
+      return;
+    }
+    const d = res.data || {};
+    const fail = d.failed ?? 0;
+    MessagePlugin.success(
+      `导入完成：新增 ${d.inserted ?? 0} 条，更新 ${d.updated ?? 0} 条${fail > 0 ? `，失败 ${fail} 条` : ''}`,
+    );
+    if (Array.isArray(d.errors) && d.errors.length > 0) {
+      console.warn('导入错误明细', d.errors);
+    }
+    importVisible.value = false;
+    importFiles.value = [];
+    loadTableData();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '导入失败');
+    return Promise.reject(e);
+  } finally {
+    importSubmitting.value = false;
+  }
+}
+
 // 加载表格数据
 const loadTableData = async () => {
   tableLoading.value = true;
   try {
-    // 构建请求参数
-    const params: any = {
-      type: activeTab.value,
-      page: pagination.value.current,
-      limit: pagination.value.pageSize,
-    };
-
-    // 添加搜索条件
-    if (searchForm.value.keyword) {
-      params.keyword = searchForm.value.keyword.trim();
-    }
-    if (searchForm.value.customer_jieduan) {
-      params.customer_jieduan = searchForm.value.customer_jieduan;
-    }
-    if (searchForm.value.customer_type) {
-      params.customer_type = searchForm.value.customer_type;
-    }
-    if (searchForm.value.industry) {
-      params.industry = searchForm.value.industry;
-    }
-    if (searchForm.value.value_level) {
-      params.value_level = searchForm.value.value_level;
-    }
+    const params: any = buildListQueryParams();
 
     const response = await getCustomerList(params);
 
@@ -888,6 +993,18 @@ onMounted(() => {
   .filter-right {
     display: flex;
     flex-wrap: wrap;
+  }
+}
+
+.import-dialog-body {
+  .import-tip {
+    margin: 0 0 12px;
+    color: var(--td-text-color-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .import-upload {
+    margin-top: 16px;
   }
 }
 </style>

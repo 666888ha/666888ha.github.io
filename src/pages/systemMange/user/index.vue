@@ -40,6 +40,7 @@
         <template #operation="{ row }">
           <t-space>
             <t-link theme="primary" @click="handleEdit(row)">编辑</t-link>
+            <t-link theme="primary" @click="handleMonthlyTarget(row)">目标设置</t-link>
             <t-link theme="danger" @click="handleDelete(row)">删除</t-link>
           </t-space>
         </template>
@@ -63,6 +64,7 @@
     </div>
     <!-- 新增 / 编辑用户弹框 -->
     <add-user-dialog ref="addUserDialogRef" @success="loadTableData" />
+    <monthly-target-dialog ref="monthlyTargetDialogRef" />
   </div>
 </template>
 <script setup lang="ts">
@@ -74,6 +76,7 @@ import type { SystemEmployeeItem } from '@/api/system/user';
 import { deleteSystemUser, getSystemEmployeeList } from '@/api/system/user';
 
 import AddUserDialog from './components/addUserDialog.vue';
+import MonthlyTargetDialog from './components/MonthlyTargetDialog.vue';
 
 defineOptions({
   name: 'SystemUserList',
@@ -99,6 +102,7 @@ const pagination = ref({
 
 // 新增 / 编辑弹框
 const addUserDialogRef = ref<InstanceType<typeof AddUserDialog> | null>(null);
+const monthlyTargetDialogRef = ref<InstanceType<typeof MonthlyTargetDialog> | null>(null);
 
 // 列配置
 const columns: PrimaryTableCol<SystemEmployeeItem>[] = [
@@ -107,7 +111,7 @@ const columns: PrimaryTableCol<SystemEmployeeItem>[] = [
   { colKey: 'role_name', title: '角色', width: 160, cell: 'role_name' },
   { colKey: 'dept_name', title: '所属部门', width: 160, cell: 'dept_name' },
   { colKey: 'create_time', title: '创建时间', minWidth: 180 },
-  { colKey: 'operation', title: '操作', width: 160, align: 'center', cell: 'operation' },
+  { colKey: 'operation', title: '操作', width: 240, align: 'center', cell: 'operation' },
 ];
 
 // 加载表格数据
@@ -162,6 +166,10 @@ const handlePageSizeChange = (pageSize: number) => {
 
 const handleEdit = (row: SystemEmployeeItem) => {
   addUserDialogRef.value?.show(row);
+};
+
+const handleMonthlyTarget = (row: SystemEmployeeItem) => {
+  monthlyTargetDialogRef.value?.show(row);
 };
 
 // 删除（占位，后续可接删除接口）

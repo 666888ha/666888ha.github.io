@@ -280,10 +280,6 @@ const handleEdit = (row: any) => {
   meetingDialogRef.value?.show(row);
 };
 
-const handleRemark = (row: any) => {
-  MessagePlugin.info(`备注会议【${row.name || row.topic || ''}】功能开发中`);
-};
-
 const handleDelete = (row: any) => {
   if (!row?.id) {
     MessagePlugin.warning('缺少会议ID，无法删除');

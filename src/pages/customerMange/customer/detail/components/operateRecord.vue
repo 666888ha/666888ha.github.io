@@ -11,12 +11,6 @@
           clearable
           @change="handleTimeRangeChange"
         />
-        <t-button theme="primary" @click="handleExport">
-          <template #icon>
-            <t-icon name="download" />
-          </template>
-          导出
-        </t-button>
       </div>
     </div>
 
@@ -229,12 +223,6 @@ const handleTimeRangeChange = () => {
   pagination.value.current = 1;
   // 重新加载数据
   loadTableData();
-};
-
-// 导出
-const handleExport = () => {
-  MessagePlugin.info('导出功能开发中');
-  // TODO: 实现导出功能
 };
 
 // 初始化

@@ -109,7 +109,12 @@
                   </t-button>
                 </div>
                 <div class="punch-info">
-                  <span class="punch-tip"> 点击插卡打卡与拍照详情 仅可拍照,不可从本地上传</span>
+                  <span class="punch-tip">点击打卡将记录时间；可选择拍照上传（走系统相机），仅传图片链接到后台，勿用手动填本地路径。</span>
+                </div>
+                <div v-if="formData.departure_photo || formData.arrival_photo || formData.leave_photo" class="punch-previews">
+                  <div v-if="formData.departure_photo">出发照片：<t-link theme="primary" :href="formData.departure_photo" target="_blank">打开</t-link></div>
+                  <div v-if="formData.arrival_photo">到达照片：<t-link theme="primary" :href="formData.arrival_photo" target="_blank">打开</t-link></div>
+                  <div v-if="formData.leave_photo">离开照片：<t-link theme="primary" :href="formData.leave_photo" target="_blank">打开</t-link></div>
                 </div>
               </div>
             </t-form-item>
@@ -142,6 +147,7 @@ import {
   getFollowDetail,
 } from '@/api/customer/customer';
 import { getDictOptions } from '@/api/dic';
+import { formatNowDateTime, pickCameraImageFile, uploadDictImageToUrl } from '@/utils/followPunchUpload';
 
 defineOptions({
   name: 'FollowUpCustomer',
@@ -170,6 +176,9 @@ const formData = ref({
   departureTime: '',
   arrivalTime: '',
   leaveTime: '',
+  departure_photo: '',
+  arrival_photo: '',
+  leave_photo: '',
 });
 
 // 关联客户选项
@@ -218,6 +227,9 @@ const handleSubmit = async ({ validateResult, firstError }: SubmitContext) => {
         departure_time: formData.value.departureTime,
         arrival_time: formData.value.arrivalTime,
         leave_time: formData.value.leaveTime,
+        departure_photo: formData.value.departure_photo,
+        arrival_photo: formData.value.arrival_photo,
+        leave_photo: formData.value.leave_photo,
         win_rate: formData.value.win_rate,
       };
       if (props.type === '2') {
@@ -262,6 +274,9 @@ const handleReset = () => {
     formData.value.departureTime = '';
     formData.value.arrivalTime = '';
     formData.value.leaveTime = '';
+    formData.value.departure_photo = '';
+    formData.value.arrival_photo = '';
+    formData.value.leave_photo = '';
   } else {
     formData.value = {
       customer_id: '',
@@ -273,6 +288,9 @@ const handleReset = () => {
       departureTime: '',
       arrivalTime: '',
       leaveTime: '',
+      departure_photo: '',
+      arrival_photo: '',
+      leave_photo: '',
     };
   }
   MessagePlugin.info('表单已重置');
@@ -391,42 +409,36 @@ const contactCustomerList = async () => {
     customerOptions.value = [];
   }
 };
-// 出发打卡
-const handleDepartPunch = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  formData.value.departureTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+// 出发打卡（时间 + 可选拍照 URL）
+const handleDepartPunch = async () => {
+  formData.value.departureTime = formatNowDateTime();
+  const file = await pickCameraImageFile();
+  if (file) {
+    const url = await uploadDictImageToUrl(file);
+    if (url) formData.value.departure_photo = url;
+  }
   MessagePlugin.success('出发打卡成功');
 };
 
 // 到达打卡
-const handleArrivePunch = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  formData.value.arrivalTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+const handleArrivePunch = async () => {
+  formData.value.arrivalTime = formatNowDateTime();
+  const file = await pickCameraImageFile();
+  if (file) {
+    const url = await uploadDictImageToUrl(file);
+    if (url) formData.value.arrival_photo = url;
+  }
   MessagePlugin.success('到达打卡成功');
 };
 
-// 离开打卡拍照
-const handleLeavePunch = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  formData.value.leaveTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+// 离开打卡拍照（离开必须带图时由业务在前端自行约束；此处与出发/到达一致）
+const handleLeavePunch = async () => {
+  formData.value.leaveTime = formatNowDateTime();
+  const file = await pickCameraImageFile();
+  if (file) {
+    const url = await uploadDictImageToUrl(file);
+    if (url) formData.value.leave_photo = url;
+  }
   MessagePlugin.success('离开打卡成功');
 };
 // 加载跟进详情（编辑）
@@ -446,6 +458,9 @@ const loadFollowDetail = async (followId: string) => {
       formData.value.departureTime = data.departure_time || '';
       formData.value.arrivalTime = data.arrival_time || '';
       formData.value.leaveTime = data.leave_time || '';
+      formData.value.departure_photo = data.departure_photo || '';
+      formData.value.arrival_photo = data.arrival_photo || '';
+      formData.value.leave_photo = data.leave_photo || '';
 
       // 关联客户变更后加载联系人列表
       if (formData.value.customer_id) {
@@ -586,6 +601,13 @@ watch(
       color: var(--td-text-color-placeholder);
       margin-left: 8px;
     }
+  }
+
+  .punch-previews {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--td-text-color-secondary);
+    line-height: 1.8;
   }
 }
 

@@ -53,16 +53,8 @@
         </t-button>
       </div>
       <div class="operation-right">
-        <t-tooltip content="排序">
-          <t-button theme="default" variant="outline" @click="clickOper(2)">
-            <template #icon>
-              <t-icon name="swap" />
-            </template>
-            排序
-          </t-button>
-        </t-tooltip>
         <t-tooltip content="列表">
-          <t-button theme="default" variant="outline" @click="clickOper(3)">
+          <t-button theme="default" variant="outline" @click="clickOper(2)">
             <template #icon>
               <t-icon name="view-list" />
             </template>
@@ -163,7 +155,7 @@ import { DialogPlugin, MessagePlugin } from 'tdesign-vue-next';
 import { defineAsyncComponent, h, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { getApprovalTodoList } from '@/api/approve/index';
+import { exportApprovalTodoList, getApprovalTodoList } from '@/api/approve/index';
 import type { CustomerListItem } from '@/api/customer/customer';
 import { batchReceiveGarbage, deleteCustomer } from '@/api/customer/customer';
 import { getDictOptions } from '@/api/dic';
@@ -515,14 +507,10 @@ const handleAdvancedFilter = () => {
 const clickOper = (type: number, row) => {
   switch (type) {
     case 1: // 导出
-      MessagePlugin.info('导出功能开发中');
-      // listExport.value.openExportProgress();
+      triggerExportCustomerApprove();
       break;
 
-    case 2: // 排序
-      MessagePlugin.info('排序功能开发中');
-      break;
-    case 3: // 列表
+    case 2: // 列表
       if (customColumnDialogRef.value) {
         customColumnDialogRef.value.show();
       }
@@ -590,37 +578,78 @@ const handlePageSizeChange = (pageSize: number) => {
   loadTableData();
 };
 
+function buildCustomerApproveListParams(withPaging: boolean): Record<string, any> {
+  const params: Record<string, any> = {
+    approval_type: 'customer',
+  };
+  if (withPaging) {
+    params.page = pagination.value.current;
+    params.limit = pagination.value.pageSize;
+  }
+  if (searchForm.value.keyword) {
+    params.keyword = searchForm.value.keyword.trim();
+  }
+  if (searchForm.value.customer_jieduan) {
+    params.customer_jieduan = searchForm.value.customer_jieduan;
+  }
+  if (searchForm.value.customer_type) {
+    params.customer_type = searchForm.value.customer_type;
+  }
+  if (searchForm.value.industry) {
+    params.industry = searchForm.value.industry;
+  }
+  if (searchForm.value.value_level) {
+    params.value_level = searchForm.value.value_level;
+  }
+  if (searchForm.value.last_follow_time) {
+    params.last_follow_time = searchForm.value.last_follow_time;
+  }
+  return params;
+}
+
+async function saveBlobAsDownload(blob: Blob, filename: string) {
+  if (blob.type && (blob.type.includes('application/json') || blob.type.includes('text/json'))) {
+    const text = await blob.text();
+    try {
+      const j = JSON.parse(text);
+      throw new Error((j as any)?.msg || (j as any)?.message || '导出失败');
+    } catch (e: any) {
+      if (e?.message === '导出失败' || e?.message?.includes('失败')) {
+        throw e;
+      }
+      throw new Error(text.slice(0, 200));
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function triggerExportCustomerApprove() {
+  tableLoading.value = true;
+  try {
+    const params = buildCustomerApproveListParams(false);
+    if (selectedRowKeys.value.length > 0) {
+      params.ids = selectedRowKeys.value.join(',');
+    }
+    const blob = await exportApprovalTodoList(params);
+    await saveBlobAsDownload(blob, `客户审批列表_${Date.now()}.csv`);
+    MessagePlugin.success('导出已开始下载');
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '导出失败');
+  } finally {
+    tableLoading.value = false;
+  }
+}
+
 // 加载表格数据
 const loadTableData = async () => {
   tableLoading.value = true;
   try {
-    // 构建请求参数
-    const params: any = {
-      page: pagination.value.current,
-      limit: pagination.value.pageSize,
-      approval_type: 'customer', // 审批类型：客户审批
-    };
-
-    // 添加搜索条件
-    if (searchForm.value.keyword) {
-      params.keyword = searchForm.value.keyword.trim();
-    }
-    if (searchForm.value.customer_jieduan) {
-      params.customer_jieduan = searchForm.value.customer_jieduan;
-    }
-    if (searchForm.value.customer_type) {
-      params.customer_type = searchForm.value.customer_type;
-    }
-    if (searchForm.value.industry) {
-      params.industry = searchForm.value.industry;
-    }
-    if (searchForm.value.value_level) {
-      params.value_level = searchForm.value.value_level;
-    }
-    if (searchForm.value.last_follow_time) {
-      params.last_follow_time = searchForm.value.last_follow_time;
-    }
-
+    const params = buildCustomerApproveListParams(true);
     const response = await getApprovalTodoList(params);
 
     if (response.code === 0 || response.code === 200) {

@@ -31,3 +31,16 @@ export const postApprovalTodoList = (data?: TodoListParams) => {
     },
   } as any);
 };
+
+/** 审批待办列表导出 CSV（GET；参数与 todo-list 一致，可传 ids） */
+export const exportApprovalTodoList = (params?: Record<string, any>) => {
+  return request.get<Blob>({
+    url: '/api/approval/export-todo',
+    params: params || {},
+    responseType: 'blob',
+    requestOptions: {
+      isTransformResponse: false,
+      withToken: true,
+    },
+  } as any);
+};

@@ -312,15 +312,6 @@ const clickOper = (type: number, row?: any) => {
     case 1:
       router.push({ path: '/officeMangeAdmin/itemMangeAdmin/add' });
       break;
-    case 2:
-      MessagePlugin.info('导出功能开发中');
-      break;
-    case 3:
-      MessagePlugin.info('排序功能开发中');
-      break;
-    case 4:
-      MessagePlugin.info('自定义列表功能开发中');
-      break;
     case 5:
       router.push({ path: '/officeMangeAdmin/itemMangeAdmin/detail', query: { id: row?.id } });
       break;

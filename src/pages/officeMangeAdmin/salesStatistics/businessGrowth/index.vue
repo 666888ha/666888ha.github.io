@@ -41,8 +41,8 @@
         <strong>同比增长率</strong>：（当前周期 − 去年同期）÷ 去年同期 × 100%。例如 (150 − 100) ÷ 100 × 100% = 50%。
       </p>
       <p>
-        <strong>环比增长率</strong>：（当前周期 − 上一个周期）÷ 上一个周期 × 100%。例如 (120 − 100) ÷ 100 × 100% =
-        20%。
+        <strong>环比增长率</strong>：（本月 − 上一自然月）÷ 上一自然月 × 100%（1月与上年12月比）。例如 (120 − 100) ÷
+        100 × 100% = 20%。
       </p>
     </div>
   </div>
@@ -51,27 +51,25 @@
 <script setup lang="ts">
 import { useWindowSize } from '@vueuse/core';
 import dayjs from 'dayjs';
-import { BarChart } from 'echarts/charts';
+import { LineChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
+import { MessagePlugin } from 'tdesign-vue-next';
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getBusinessGrowth } from '@/api/statistics';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { statisticsScope } from '../statisticsRequest';
 
 defineOptions({
   name: 'BusinessGrowthStatistics',
 });
 
-echarts.use([TooltipComponent, LegendComponent, GridComponent, BarChart, CanvasRenderer]);
+echarts.use([TooltipComponent, LegendComponent, GridComponent, LineChart, CanvasRenderer]);
 
 const MONTH_LABELS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-
-/** 与示意图一致：4 月约 14.5 / 8.5 */
-const PRESET_YEAR_DATA: Record<number, number[]> = {
-  2018: [6, 7, 9, 14.5, 12, 10, 8, 15, 18, 16, 12, 10],
-  2019: [4, 5, 7, 8.5, 10, 11, 9, 12, 14, 13, 10, 8],
-};
 
 const SERIES_COLORS = ['#5eadf5', '#2ec7a6', '#f5d547', '#8b7fd8', '#ec746e'];
 
@@ -92,7 +90,8 @@ const yearOptions = Array.from({ length: currentYear - 2009 + 2 }, (_, i) => {
   return { label: `${y}年`, value: y };
 });
 
-const DEFAULT_YEARS = [2018, 2019];
+/** 默认只展示「本年」一条曲线；可多选年份对比 */
+const DEFAULT_YEARS = [currentYear];
 
 const filters = ref({
   metric: 'customer',
@@ -109,21 +108,37 @@ let chartInstance: echarts.ECharts | null = null;
 
 const { width: winWidth } = useWindowSize();
 
+/** 接口返回的 series.data */
+const growthSeries = ref<{ name: string; data: number[] }[]>([]);
+
 function resolvedYears(): number[] {
-  const ys = filters.value.years?.length ? [...filters.value.years] : [...DEFAULT_YEARS];
-  return ys.sort((a, b) => a - b);
+  const raw = filters.value.years?.length ? [...filters.value.years] : [currentYear];
+  return [...new Set(raw.map((y) => Number(y)))].filter((y) => y > 0).sort((a, b) => a - b);
 }
 
-function monthValue(year: number, monthIndex: number): number {
-  const preset = PRESET_YEAR_DATA[year];
-  if (preset) return preset[monthIndex];
-  const base = 5 + (year % 7) + (monthIndex % 5) * 0.8;
-  const wave = Math.sin((monthIndex + 1) * 0.5 + year * 0.1) * 6;
-  return Math.round((base + wave) * 10) / 10;
-}
-
-function growthSuffix(): string {
-  return filters.value.growthType === 'yoy' ? '同比增长率' : '环比增长率';
+async function fetchGrowth() {
+  try {
+    const years = resolvedYears();
+    const res = await getBusinessGrowth({
+      ...statisticsScope(filters.value.deptId, undefined),
+      metric: filters.value.metric,
+      growth_type: filters.value.growthType,
+      years: years.join(','),
+    });
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || '加载失败');
+      return;
+    }
+    const raw = (res.data?.series || []) as { name?: string; data?: number[] }[];
+    growthSeries.value = raw.map((s) => ({
+      name: String(s.name ?? ''),
+      data: (s.data || []).map((v) => Number(v) || 0),
+    }));
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  }
 }
 
 function renderChart() {
@@ -132,22 +147,35 @@ function renderChart() {
   if (!chartInstance) chartInstance = echarts.init(el);
 
   const years = resolvedYears();
-  const suffix = growthSuffix();
-
-  const series = years.map((y, idx) => ({
-    name: `${y}年${suffix}%`,
-    type: 'bar' as const,
-    barMaxWidth: 22,
-    itemStyle: { color: SERIES_COLORS[idx % SERIES_COLORS.length] },
-    data: MONTH_LABELS.map((_, mi) => monthValue(y, mi)),
-  }));
+  const series = growthSeries.value.length
+    ? growthSeries.value.map((s, idx) => ({
+        name: s.name,
+        type: 'line' as const,
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: { width: 2 },
+        itemStyle: { color: SERIES_COLORS[idx % SERIES_COLORS.length] },
+        data: s.data.length >= 12 ? s.data.slice(0, 12) : [...s.data, ...Array(12 - s.data.length).fill(0)],
+      }))
+    : years.map((y, idx) => ({
+        name: `${y}年`,
+        type: 'line' as const,
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: { width: 2 },
+        itemStyle: { color: SERIES_COLORS[idx % SERIES_COLORS.length] },
+        data: Array(12).fill(0),
+      }));
 
   chartInstance.setOption(
     {
       tooltip: {
         trigger: 'axis',
-        axisPointer: { type: 'shadow' },
-        valueFormatter: (v: number | string) => (typeof v === 'number' ? String(v) : v),
+        axisPointer: { type: 'cross' },
+        valueFormatter: (v: number | string) =>
+          typeof v === 'number' ? `${v.toLocaleString('zh-CN', { maximumFractionDigits: 2 })}%` : String(v),
       },
       legend: {
         bottom: 8,
@@ -168,13 +196,14 @@ function renderChart() {
       },
       yAxis: {
         type: 'value',
-        min: 0,
-        max: 30,
-        interval: 5,
+        scale: true,
         splitLine: {
           lineStyle: { type: 'dashed', color: '#e5e6eb' },
         },
-        axisLabel: { fontSize: 12 },
+        axisLabel: {
+          fontSize: 12,
+          formatter: (v: number) => `${v}%`,
+        },
       },
       series,
     },
@@ -206,7 +235,7 @@ async function loadDeptOptions() {
 }
 
 function handleSearch() {
-  nextTick(() => renderChart());
+  void fetchGrowth();
 }
 
 function handleReset() {
@@ -214,14 +243,14 @@ function handleReset() {
     metric: 'customer',
     growthType: 'yoy',
     deptId: undefined,
-    years: [...DEFAULT_YEARS],
+    years: [currentYear],
   };
-  nextTick(() => renderChart());
+  void fetchGrowth();
 }
 
 watch(
-  () => [filters.value.growthType, filters.value.years],
-  () => nextTick(() => renderChart()),
+  () => [filters.value.growthType, filters.value.years, filters.value.metric],
+  () => void fetchGrowth(),
   { deep: true },
 );
 
@@ -230,8 +259,9 @@ watch(winWidth, () => {
 });
 
 onMounted(() => {
-  nextTick(() => renderChart());
-  void loadDeptOptions().then(() => nextTick(() => chartInstance?.resize()));
+  void loadDeptOptions().then(() =>
+    void fetchGrowth().then(() => nextTick(() => chartInstance?.resize())),
+  );
 });
 
 onUnmounted(() => {

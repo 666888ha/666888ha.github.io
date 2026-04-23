@@ -46,16 +46,6 @@
         <t-button theme="default" @click="handleReset">重置</t-button>
       </div>
     </div>
-    <!-- 操作按钮和表格控制 -->
-    <div class="import-btn">
-      <t-button theme="primary" @click="clickOper()">
-        <template #icon>
-          <t-icon name="download" />
-        </template>
-        导出
-      </t-button>
-    </div>
-
     <!-- 跟进记录时间线列表 -->
     <div class="follow-up-timeline">
       <div v-for="(dateGroup, dateIndex) in followList" :key="dateIndex" class="date-group">
@@ -389,8 +379,6 @@ const handleDeleteComment = (record: any, index: number) => {
 const handleViewDetail = (record: any) => {
   if (followUpDetailRef.value) {
     followUpDetailRef.value.show(record);
-  } else {
-    MessagePlugin.info('查看详情功能开发中');
   }
 };
 
@@ -411,11 +399,6 @@ const handleDeleteRecord = (record: any) => {
       MessagePlugin.success('删除成功');
     },
   });
-};
-
-// 导出
-const clickOper = () => {
-  MessagePlugin.success('导出功能开发中');
 };
 
 // 分页变化

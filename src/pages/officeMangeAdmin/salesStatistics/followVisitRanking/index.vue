@@ -81,6 +81,7 @@
         size="medium"
         bordered
         stripe
+        :loading="loadingData"
         :row-class-name="rowClassName"
       >
         <template #rank="{ row }">
@@ -116,12 +117,15 @@ import { BarChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import type { PrimaryTableCol, RowClassNameParams } from 'tdesign-vue-next';
+import type { PrimaryTableCol, TableRowClassNameParams } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getRankingFollowVisit } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { statisticsScope } from '../statisticsRequest';
 
 defineOptions({
   name: 'FollowVisitRanking',
@@ -136,30 +140,6 @@ const COLOR_VISIT = '#52c41a';
 const COLOR_CHECKIN = '#faad14';
 
 const typeOptions = [{ label: '写跟进时间', value: 'follow_write_time' }];
-
-const MOCK_TABLE = 200;
-
-const EMPLOYEE_NAMES = [
-  '赵小刚',
-  '李小红',
-  '王小明',
-  '周小伟',
-  '孙小军',
-  '吴小丽',
-  '郑小强',
-  '钱小敏',
-  '冯小涛',
-];
-
-/** 周小伟（下标 3）：跟进 215、拜访 152、签到 155 */
-const CHART_IND_FOLLOW = [268, 255, 245, 215, 205, 195, 185, 172, 160];
-const CHART_IND_VISIT = [188, 175, 165, 152, 142, 135, 125, 118, 108];
-const CHART_IND_CHECKIN = [192, 180, 170, 155, 148, 138, 128, 118, 108];
-
-const DEPT_LABELS = Array.from({ length: 10 }, (_, i) => `部门名称${i + 1}`);
-const CHART_DEPT_FOLLOW = [275, 258, 242, 228, 212, 198, 185, 172, 158, 145];
-const CHART_DEPT_VISIT = [195, 182, 170, 158, 148, 138, 128, 118, 108, 98];
-const CHART_DEPT_CHECKIN = [200, 188, 175, 162, 152, 142, 132, 122, 112, 102];
 
 const currentYear = dayjs().year();
 const yearOptions = Array.from({ length: 12 }, (_, i) => {
@@ -187,9 +167,13 @@ let chartInstance: echarts.ECharts | null = null;
 
 const { width: winWidth } = useWindowSize();
 
-const summaryLine = computed(
-  () => `跟进次数: ${MOCK_TABLE}, 拜访次数: ${MOCK_TABLE}, 签到次数: ${MOCK_TABLE}`,
-);
+const summaryStats = ref({ follow: 0, visit: 0, checkin: 0 });
+const loadingData = ref(false);
+
+const summaryLine = computed(() => {
+  const s = summaryStats.value;
+  return `跟进次数: ${s.follow}, 拜访次数: ${s.visit}, 签到次数: ${s.checkin}`;
+});
 
 interface IndividualRow {
   rowKey: string;
@@ -210,31 +194,61 @@ interface DepartmentRow {
   checkinCount: number;
 }
 
-function buildIndividualRows(): IndividualRow[] {
-  return EMPLOYEE_NAMES.map((_, i) => ({
-    rowKey: `e-${i}`,
-    rank: i + 1,
-    name: '赵小刚',
-    dept: '销售一部',
-    followCount: MOCK_TABLE,
-    visitCount: MOCK_TABLE,
-    checkinCount: MOCK_TABLE,
-  }));
+const individualRows = ref<IndividualRow[]>([]);
+const departmentRows = ref<DepartmentRow[]>([]);
+
+function rankRequestParams() {
+  return {
+    ...statisticsScope(filters.value.deptId, filters.value.userId),
+    dimension: activeTab.value === 'individual' ? 'individual' : 'department',
+    year: filters.value.year,
+    follow_type: filters.value.followType,
+  };
 }
 
-function buildDepartmentRows(): DepartmentRow[] {
-  return DEPT_LABELS.map((_, i) => ({
-    rowKey: `d-${i}`,
-    rank: i + 1,
-    name: '销售一部',
-    followCount: MOCK_TABLE,
-    visitCount: MOCK_TABLE,
-    checkinCount: MOCK_TABLE,
-  }));
+async function fetchRanking() {
+  loadingData.value = true;
+  try {
+    const res = await getRankingFollowVisit(rankRequestParams());
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || '加载失败');
+      return;
+    }
+    const list = ((res.data as any)?.list || []) as any[];
+    if (activeTab.value === 'individual') {
+      individualRows.value = list.map((r, i) => ({
+        rowKey: String(r.row_key ?? `r-${i}`),
+        rank: Number(r.rank) || i + 1,
+        name: r.name ?? '',
+        dept: r.dept ?? '',
+        followCount: Number(r.follow_count) || 0,
+        visitCount: Number(r.visit_count) || 0,
+        checkinCount: Number(r.checkin_count) || 0,
+      }));
+    } else {
+      departmentRows.value = list.map((r, i) => ({
+        rowKey: String(r.row_key ?? `r-${i}`),
+        rank: Number(r.rank) || i + 1,
+        name: r.name ?? '',
+        followCount: Number(r.follow_count) || 0,
+        visitCount: Number(r.visit_count) || 0,
+        checkinCount: Number(r.checkin_count) || 0,
+      }));
+    }
+    const rows = tableRows.value as (IndividualRow | DepartmentRow)[];
+    summaryStats.value = {
+      follow: rows.reduce((s, r) => s + r.followCount, 0),
+      visit: rows.reduce((s, r) => s + r.visitCount, 0),
+      checkin: rows.reduce((s, r) => s + r.checkinCount, 0),
+    };
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
+  }
 }
-
-const individualRows = ref<IndividualRow[]>(buildIndividualRows());
-const departmentRows = ref<DepartmentRow[]>(buildDepartmentRows());
 
 const tableRows = computed(() =>
   activeTab.value === 'individual' ? individualRows.value : departmentRows.value,
@@ -260,7 +274,7 @@ const tableColumns = computed<PrimaryTableCol[]>(() => {
   ];
 });
 
-function rowClassName({ rowIndex }: RowClassNameParams<unknown>) {
+function rowClassName({ rowIndex }: TableRowClassNameParams<unknown>) {
   if (activeTab.value === 'individual' && rowIndex === 0) return 'rank-top-row';
   return '';
 }
@@ -271,10 +285,11 @@ function renderChart() {
   if (!chartInstance) chartInstance = echarts.init(el);
 
   const isInd = activeTab.value === 'individual';
-  const categories = isInd ? EMPLOYEE_NAMES : DEPT_LABELS;
-  const followData = isInd ? [...CHART_IND_FOLLOW] : [...CHART_DEPT_FOLLOW];
-  const visitData = isInd ? [...CHART_IND_VISIT] : [...CHART_DEPT_VISIT];
-  const checkinData = isInd ? [...CHART_IND_CHECKIN] : [...CHART_DEPT_CHECKIN];
+  const rows = tableRows.value as (IndividualRow | DepartmentRow)[];
+  const categories = rows.map((r) => r.name);
+  const followData = rows.map((r) => r.followCount);
+  const visitData = rows.map((r) => r.visitCount);
+  const checkinData = rows.map((r) => r.checkinCount);
 
   chartInstance.setOption(
     {
@@ -305,8 +320,7 @@ function renderChart() {
       yAxis: {
         type: 'value',
         min: 0,
-        max: 300,
-        interval: 50,
+        scale: true,
         splitLine: { lineStyle: { type: 'dashed', color: '#e5e6eb' } },
         axisLabel: { fontSize: 11 },
       },
@@ -379,18 +393,12 @@ async function loadUserOptions() {
   }
 }
 
-function refreshRows() {
-  individualRows.value = buildIndividualRows();
-  departmentRows.value = buildDepartmentRows();
-}
-
 function handleTabChange() {
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleSearch() {
-  refreshRows();
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleReset() {
@@ -401,8 +409,7 @@ function handleReset() {
     deptId: undefined,
     userId: undefined,
   };
-  refreshRows();
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleSort() {
@@ -431,10 +438,9 @@ function handleExport() {
 watch(winWidth, () => chartInstance?.resize());
 
 onMounted(() => {
-  nextTick(() => renderChart());
-  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
-    nextTick(() => chartInstance?.resize());
-  });
+  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() =>
+    void fetchRanking().then(() => nextTick(() => chartInstance?.resize())),
+  );
 });
 
 onUnmounted(() => disposeChart());

@@ -49,7 +49,15 @@
           导出
         </t-button>
       </div>
-      <t-table :data="tableRows" :columns="tableColumns" row-key="rowKey" size="medium" bordered stripe>
+      <t-table
+        :data="tableRows"
+        :columns="tableColumns"
+        row-key="rowKey"
+        size="medium"
+        bordered
+        stripe
+        :loading="loadingData"
+      >
         <template #time="{ row }">
           <t-link theme="primary" @click.prevent>{{ row.time }}</t-link>
         </template>
@@ -83,8 +91,11 @@ import type { PrimaryTableCol } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getPaymentPlanSummary } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { statisticsScope } from '../statisticsRequest';
 
 defineOptions({
   name: 'PaymentCollectionPlanSummary',
@@ -96,27 +107,6 @@ const BLUE = '#5eadf5';
 const GREEN = '#2ec7a6';
 
 const MONTH_LABELS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-
-const MOCK_PLAN = 1_000_000;
-const MOCK_DONE = 900_000;
-const MOCK_RATE = '90%';
-const MOCK_UNDONE = 100_000;
-const MOCK_INVOICED = 900_000;
-
-const PLAN_MONTHLY = [
-  920_000, 
-940_000, 
-960_000, 
-980_000, 
-1_000_000, 
-1_020_000, 
-1_000_000, 
-990_000, 
-1_010_000, 
-1_000_000, 
-980_000, 970_000,
-];
-const DONE_MONTHLY = PLAN_MONTHLY.map((p) => Math.round(p * 0.9 + 15_000));
 
 const currentYear = dayjs().year();
 const yearOptions = Array.from({ length: 12 }, (_, i) => {
@@ -144,10 +134,15 @@ function formatMoney(n: number) {
   return `￥${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const summaryLine = computed(
-  () =>
-    `合同约定金额：${formatMoney(MOCK_PLAN)}，实际回款金额：${formatMoney(MOCK_DONE)}，完成率：${MOCK_RATE}，未完成金额：${formatMoney(MOCK_UNDONE)}，已开票金额：${formatMoney(MOCK_INVOICED)}`,
-);
+const summaryTotals = ref({ plan: 0, done: 0, invoiced: 0 });
+const loadingData = ref(false);
+
+const summaryLine = computed(() => {
+  const s = summaryTotals.value;
+  const undone = Math.max(0, s.plan - s.done);
+  const rate = s.plan > 0 ? `${((s.done / s.plan) * 100).toFixed(2)}%` : '0%';
+  return `计划金额合计：${formatMoney(s.plan)}，实际回款：${formatMoney(s.done)}，完成率：${rate}，未完成：${formatMoney(undone)}，已开票：${formatMoney(s.invoiced)}`;
+});
 
 interface TableRow {
   rowKey: string;
@@ -159,19 +154,44 @@ interface TableRow {
   invoiced: number;
 }
 
-function buildRows(year: number): TableRow[] {
-  return Array.from({ length: 12 }, (_, i) => ({
-    rowKey: `p-${i}`,
-    time: `${year}-${String(i + 1).padStart(2, '0')}`,
-    target: MOCK_PLAN,
-    done: MOCK_DONE,
-    rate: MOCK_RATE,
-    undone: MOCK_UNDONE,
-    invoiced: MOCK_INVOICED,
-  }));
-}
+const tableRows = ref<TableRow[]>([]);
 
-const tableRows = ref<TableRow[]>(buildRows(currentYear));
+async function fetchPaymentPlan() {
+  loadingData.value = true;
+  try {
+    const res = await getPaymentPlanSummary({
+      ...statisticsScope(filters.value.deptId, filters.value.userId),
+      year: filters.value.year,
+    });
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || '加载失败');
+      return;
+    }
+    const d = res.data || {};
+    const list = (d.list || []) as any[];
+    tableRows.value = list.map((r, i) => ({
+      rowKey: String(r.row_key ?? `p-${i}`),
+      time: r.time,
+      target: Number(r.target) || 0,
+      done: Number(r.done) || 0,
+      rate: String(r.rate ?? '0%'),
+      undone: Number(r.undone) || 0,
+      invoiced: Number(r.invoiced) || 0,
+    }));
+    const sum = d.summary || {};
+    summaryTotals.value = {
+      plan: Number(sum.plan_total) || 0,
+      done: Number(sum.done_total) || 0,
+      invoiced: list.reduce((acc, r) => acc + (Number(r.invoiced) || 0), 0),
+    };
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
+  }
+}
 
 const tableColumns: PrimaryTableCol[] = [
   { colKey: 'time', title: '时间', width: 110, cell: 'time' },
@@ -214,8 +234,7 @@ function renderChart() {
       yAxis: {
         type: 'value',
         min: 0,
-        max: 3_000_000,
-        interval: 500_000,
+        scale: true,
         splitLine: {
           lineStyle: { type: 'dashed', color: '#e5e6eb' },
         },
@@ -230,14 +249,14 @@ function renderChart() {
           type: 'bar',
           barMaxWidth: 22,
           itemStyle: { color: BLUE },
-          data: [...PLAN_MONTHLY],
+          data: tableRows.value.map((r) => r.target),
         },
         {
           name: '完成金额',
           type: 'bar',
           barMaxWidth: 22,
           itemStyle: { color: GREEN },
-          data: [...DONE_MONTHLY],
+          data: tableRows.value.map((r) => r.done),
         },
       ],
     },
@@ -287,8 +306,7 @@ async function loadUserOptions() {
 }
 
 function handleSearch() {
-  tableRows.value = buildRows(filters.value.year);
-  nextTick(() => renderChart());
+  void fetchPaymentPlan();
 }
 
 function handleReset() {
@@ -297,8 +315,7 @@ function handleReset() {
     deptId: undefined,
     userId: undefined,
   };
-  tableRows.value = buildRows(currentYear);
-  nextTick(() => renderChart());
+  void fetchPaymentPlan();
 }
 
 function handleExport() {
@@ -330,8 +347,7 @@ function handleExport() {
 watch(
   () => filters.value.year,
   () => {
-    tableRows.value = buildRows(filters.value.year);
-    nextTick(() => renderChart());
+    void fetchPaymentPlan();
   },
 );
 
@@ -340,10 +356,9 @@ watch(winWidth, () => {
 });
 
 onMounted(() => {
-  nextTick(() => renderChart());
-  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
-    nextTick(() => chartInstance?.resize());
-  });
+  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() =>
+    void fetchPaymentPlan().then(() => nextTick(() => chartInstance?.resize())),
+  );
 });
 
 onUnmounted(() => {

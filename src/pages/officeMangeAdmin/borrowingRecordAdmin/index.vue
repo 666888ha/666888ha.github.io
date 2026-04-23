@@ -390,7 +390,6 @@ const clickOperate = async (type: number, row: any) => {
   switch (type) {
     case 1:
     case 2:
-      // MessagePlugin.info(`查看记录【${row.goods_name || ''}】详情功能开发中`);
       break;
     case 3: {
       // 撤销操作

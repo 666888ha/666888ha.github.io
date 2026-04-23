@@ -1,5 +1,5 @@
 // axios配置  可自行根据项目进行更改，只需更改该文件即可，其他文件可以不动
-import type { AxiosInstance } from 'axios';
+import { AxiosHeaders, type AxiosInstance } from 'axios';
 import isString from 'lodash/isString';
 import merge from 'lodash/merge';
 
@@ -42,8 +42,13 @@ const transform: AxiosTransform = {
       throw new Error('请求接口错误');
     }
 
+    // 二进制响应（导出文件等）：不按 JSON 业务 code 解析
+    if (typeof Blob !== 'undefined' && data instanceof Blob) {
+      return data;
+    }
+
     //  这里 code为 后台统一的字段，需要在 types.ts内修改为项目自己的接口返回格式
-    const { code } = data;
+    const { code } = data as Record<string, unknown>;
 
     // 检查是否为 401 未授权（token 过期）- 处理业务 code 为 401 的情况
     if (code === 401) {
@@ -111,6 +116,13 @@ const transform: AxiosTransform = {
   beforeRequestHook: (config, options) => {
     const { apiUrl, isJoinPrefix, urlPrefix, joinParamsToUrl, formatDate, joinTime = true } = options;
 
+    // 实例默认 Content-Type 为 application/json 时，axios 会把 FormData 序列化成 JSON，后端收不到 multipart file
+    if (config.data instanceof FormData) {
+      const headers = AxiosHeaders.from(config.headers);
+      headers.set('Content-Type', false);
+      config.headers = headers;
+    }
+
     // 添加接口前缀
     if (isJoinPrefix && urlPrefix && isString(urlPrefix)) {
       config.url = `${urlPrefix}${config.url}`;
@@ -123,7 +135,7 @@ const transform: AxiosTransform = {
     const params = config.params || {};
     const data = config.data || false;
 
-    if (formatDate && data && !isString(data)) {
+    if (formatDate && data && !isString(data) && !(data instanceof FormData)) {
       formatRequestDate(data);
     }
     if (config.method?.toUpperCase() === 'GET') {

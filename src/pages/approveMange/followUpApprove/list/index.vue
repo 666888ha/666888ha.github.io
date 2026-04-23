@@ -49,9 +49,6 @@
         <!-- 操作按钮 -->
         <t-button theme="primary" @click="handleSearch">查询</t-button>
         <t-button theme="default" @click="handleReset">重置</t-button>
-        <t-button theme="default" text @click="handleAdvancedFilter">
-          <span style="color: #165dff">Y. 高级筛选</span>
-        </t-button>
       </div>
     </div>
     <!-- 操作按钮和表格控制 -->
@@ -65,16 +62,8 @@
         </t-button>
       </div>
       <div class="operation-right">
-        <t-tooltip content="排序">
-          <t-button theme="default" variant="outline" @click="clickOper(4)">
-            <template #icon>
-              <t-icon name="swap" />
-            </template>
-            排序
-          </t-button>
-        </t-tooltip>
         <t-tooltip content="列表">
-          <t-button theme="default" variant="outline" @click="clickOper(6)">
+          <t-button theme="default" variant="outline" @click="clickOper(4)">
             <template #icon>
               <t-icon name="view-list" />
             </template>
@@ -173,7 +162,7 @@ import { DialogPlugin, MessagePlugin } from 'tdesign-vue-next';
 import { defineAsyncComponent, h, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { postApprovalTodoList } from '@/api/approve/index';
+import { exportApprovalTodoList, postApprovalTodoList } from '@/api/approve/index';
 import { delFollow } from '@/api/customer/customer';
 import { copyToClipboard, getApprovalStatusText } from '@/utils/ruoyi';
 
@@ -370,30 +359,22 @@ const handleReset = () => {
   loadTableData();
 };
 
-// 高级筛选
-const handleAdvancedFilter = () => {
-  MessagePlugin.info('高级筛选功能开发中');
-};
-
 // 操作
 const clickOper = async (type: number, row) => {
   switch (type) {
-    case 1: // 添加跟进
-      MessagePlugin.info('排序功能开发中');
+    case 1: // 导出
+      triggerExportFollowApprove();
       break;
-    case 4: // 排序
-      MessagePlugin.info('排序功能开发中');
+    case 4: // 列表
+      if (customColumnDialogRef.value) {
+        customColumnDialogRef.value.show();
+      }
       break;
     case 5: // 编辑
       router.push({
         path: '/followUpManagement/edit',
         query: { id: row.id },
       });
-      break;
-    case 6: // 列表
-      if (customColumnDialogRef.value) {
-        customColumnDialogRef.value.show();
-      }
       break;
     case 7: {
       // 拨打
@@ -504,35 +485,76 @@ const handlePageSizeChange = (pageSize: number) => {
 // 原始数据（用于筛选）
 const originalTableData = ref<FollowUpRecordData[]>([]);
 
+function buildFollowApproveListParams(withPaging: boolean): Record<string, any> {
+  const params: Record<string, any> = {
+    approval_type: 'follow',
+  };
+  if (withPaging) {
+    params.page = pagination.value.current;
+    params.limit = pagination.value.pageSize;
+  }
+  if (searchForm.value.customerName) {
+    params.customer_name = searchForm.value.customerName.trim();
+  }
+  if (searchForm.value.followStage) {
+    params.follow_stage = searchForm.value.followStage;
+  }
+  if (searchForm.value.followPerson) {
+    params.follow_user_id = searchForm.value.followPerson;
+  }
+  if (searchForm.value.dealProbability) {
+    params.deal_probability = searchForm.value.dealProbability;
+  }
+  if (Array.isArray(searchForm.value.followTime) && searchForm.value.followTime.length === 2) {
+    params.start_time = searchForm.value.followTime[0];
+    params.end_time = searchForm.value.followTime[1];
+  }
+  return params;
+}
+
+async function saveBlobAsDownload(blob: Blob, filename: string) {
+  if (blob.type && (blob.type.includes('application/json') || blob.type.includes('text/json'))) {
+    const text = await blob.text();
+    try {
+      const j = JSON.parse(text);
+      throw new Error((j as any)?.msg || (j as any)?.message || '导出失败');
+    } catch (e: any) {
+      if (e?.message === '导出失败' || e?.message?.includes('失败')) {
+        throw e;
+      }
+      throw new Error(text.slice(0, 200));
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function triggerExportFollowApprove() {
+  tableLoading.value = true;
+  try {
+    const params = buildFollowApproveListParams(false);
+    if (selectedRowKeys.value.length > 0) {
+      params.ids = selectedRowKeys.value.join(',');
+    }
+    const blob = await exportApprovalTodoList(params);
+    await saveBlobAsDownload(blob, `跟进审批列表_${Date.now()}.csv`);
+    MessagePlugin.success('导出已开始下载');
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '导出失败');
+  } finally {
+    tableLoading.value = false;
+  }
+}
+
 // 加载表格数据
 const loadTableData = async () => {
   tableLoading.value = true;
   try {
-    // 构建请求参数
-    const params: any = {
-      approval_type: 'follow',
-      page: pagination.value.current,
-      limit: pagination.value.pageSize,
-    };
-
-    // 添加搜索条件
-    if (searchForm.value.customerName) {
-      params.customer_name = searchForm.value.customerName.trim();
-    }
-    if (searchForm.value.followStage) {
-      params.follow_stage = searchForm.value.followStage;
-    }
-    if (searchForm.value.followPerson) {
-      params.follow_user_id = searchForm.value.followPerson;
-    }
-    if (searchForm.value.dealProbability) {
-      params.deal_probability = searchForm.value.dealProbability;
-    }
-    if (Array.isArray(searchForm.value.followTime) && searchForm.value.followTime.length === 2) {
-      params.start_time = searchForm.value.followTime[0];
-      params.end_time = searchForm.value.followTime[1];
-    }
-
+    const params = buildFollowApproveListParams(true);
     const response = await postApprovalTodoList(params);
 
     if (response.code === 0 || response.code === 200) {

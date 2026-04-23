@@ -48,19 +48,21 @@ import { BarChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
+import dayjs from 'dayjs';
+import { MessagePlugin } from 'tdesign-vue-next';
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getBusinessComprehensive } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { monthRangeParams, statisticsScope } from '../statisticsRequest';
 
 defineOptions({
   name: 'BusinessComprehensiveStatistics',
 });
 
 echarts.use([TooltipComponent, LegendComponent, GridComponent, BarChart, CanvasRenderer]);
-
-/** 与示意图趋势一致：1 月约 90，8 月约 275，12 月约 136 */
-const DEFAULT_BAR_DATA = [90, 120, 140, 165, 190, 210, 250, 275, 240, 200, 170, 136];
 
 const MONTH_LABELS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -87,7 +89,29 @@ let chartInstance: echarts.ECharts | null = null;
 
 const { width: winWidth } = useWindowSize();
 
-const barData = ref<number[]>([...DEFAULT_BAR_DATA]);
+const barData = ref<number[]>(Array(12).fill(0));
+
+async function fetchComprehensive() {
+  try {
+    const y = dayjs().year();
+    const res = await getBusinessComprehensive({
+      ...statisticsScope(filters.value.deptId, filters.value.userId),
+      ...monthRangeParams([`${y}-01`, `${y}-12`]),
+    });
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || '加载失败');
+      return;
+    }
+    const list = (res.data?.list || []) as { value?: number }[];
+    const vals = list.map((r) => Number(r.value) || 0);
+    while (vals.length < 12) vals.push(0);
+    barData.value = vals.slice(0, 12);
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  }
+}
 
 function currentMetricLabel() {
   return metricOptions.find((o) => o.value === filters.value.metric)?.label ?? '跟进次数';
@@ -126,8 +150,7 @@ function renderChart() {
       yAxis: {
         type: 'value',
         min: 0,
-        max: 300,
-        interval: 50,
+        scale: true,
         splitLine: {
           lineStyle: { type: 'dashed', color: '#e5e6eb' },
         },
@@ -192,8 +215,7 @@ async function loadUserOptions() {
 }
 
 function handleSearch() {
-  barData.value = [...DEFAULT_BAR_DATA];
-  nextTick(() => renderChart());
+  void fetchComprehensive();
 }
 
 function handleReset() {
@@ -203,8 +225,7 @@ function handleReset() {
     deptId: undefined,
     userId: undefined,
   };
-  barData.value = [...DEFAULT_BAR_DATA];
-  nextTick(() => renderChart());
+  void fetchComprehensive();
 }
 
 watch(
@@ -219,9 +240,8 @@ watch(winWidth, () => {
 });
 
 onMounted(() => {
-  nextTick(() => renderChart());
   void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
-    nextTick(() => chartInstance?.resize());
+    void fetchComprehensive().then(() => nextTick(() => chartInstance?.resize()));
   });
 });
 

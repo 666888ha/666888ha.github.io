@@ -10,27 +10,7 @@
           </template>
           添加
         </t-button>
-        <div class="action-with-badge">
-          <t-dropdown :options="smsOptions" trigger="click" @click="clickOper(2)">
-            <t-button theme="primary" variant="outline">
-              <template #icon>
-                <t-icon name="chat" />
-              </template>
-              发送短信
-            </t-button>
-          </t-dropdown>
-        </div>
-        <div class="action-with-badge">
-          <t-dropdown :options="exportOptions" trigger="click" @click="clickOper(3)">
-            <t-button theme="primary" variant="outline">
-              <template #icon>
-                <t-icon name="download" />
-              </template>
-              导出
-            </t-button>
-          </t-dropdown>
-        </div>
-        <t-button theme="primary" variant="outline" @click="clickOper(4)">
+        <t-button theme="primary" variant="outline" @click="clickOper(2)">
           <template #icon>
             <t-icon name="delete" />
           </template>
@@ -54,8 +34,7 @@
         <!-- 操作列 -->
         <template #operation="{ row }">
           <t-space>
-            <t-link theme="primary" @click="clickOper(6, row)"> 短信 </t-link>
-            <t-link theme="danger" @click="clickOper(7, row)"> 删除 </t-link>
+            <t-link theme="danger" @click="clickOper(3, row)"> 删除 </t-link>
           </t-space>
         </template>
       </t-table>
@@ -133,17 +112,6 @@ const pagination = ref({
   pageSizeOptions: [10, 20, 50, 100],
 });
 
-// 下拉选项
-const smsOptions = [
-  { content: '选中数据发送', value: 'send' },
-  { content: '批量发送', value: 'batch' },
-];
-
-const exportOptions = [
-  { content: '选中数据导出', value: 'excel' },
-  { content: '批量导出', value: 'csv' },
-];
-
 // 选择变化
 const handleSelectChange = (value: (string | number)[]) => {
   selectedRowKeys.value = value;
@@ -214,34 +182,14 @@ const clickOper = (type: number, row?: any) => {
     case 1: // 添加
     router.push(`/customerMange/contacts/detailAddCustomer?customer_id=${route.query.id}`);
       break;
-    case 2: // 发送短信
-      if (selectedRowKeys.value.length === 0) {
-        MessagePlugin.warning('请先选择要发送短信的联系人');
-        return;
-      }
-      MessagePlugin.info('发送短信功能开发中');
-      break;
-    case 3: // 导出
-      if (selectedRowKeys.value.length === 0) {
-        MessagePlugin.warning('请先选择要导出的联系人');
-        return;
-      }
-      MessagePlugin.info('导出功能开发中');
-      break;
-    case 4: // 批量删除
+    case 2: // 批量删除
       if (selectedRowKeys.value.length === 0) {
         MessagePlugin.warning('请先选择要删除的联系人');
         return;
       }
       handleBatchDelete();
       break;
-    case 5: // 拨打
-      MessagePlugin.info(`拨打: ${row.mobile}`);
-      break;
-    case 6: // 短信
-      MessagePlugin.info(`发送短信到: ${row.mobile}`);
-      break;
-    case 7: // 删除单条
+    case 3: // 删除单条
       if (row && row.id) {
         handleDeleteContact(row.id, row.contactName || '该联系人');
       }

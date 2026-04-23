@@ -46,16 +46,8 @@
         <t-tooltip content="当对列表客户写跟进时,会自动将刚刚写过跟进的客户排到最后。" :show-arrow="false">
           <t-icon name="help-circle" />
         </t-tooltip>
-        <t-tooltip content="排序">
-          <t-button theme="default" variant="outline" @click="clickOper(7)">
-            <template #icon>
-              <t-icon name="swap" />
-            </template>
-            排序
-          </t-button>
-        </t-tooltip>
         <t-tooltip content="列表">
-          <t-button theme="default" variant="outline" @click="clickOper(8)">
+          <t-button theme="default" variant="outline" @click="clickOper(7)">
             <template #icon>
               <t-icon name="view-list" />
             </template>
@@ -431,10 +423,7 @@ const clickOper = (type: number, row) => {
         mergeCustomerDialogRef.value.show(selectedCustomers);
       }
       break;
-    case 7: // 排序
-      MessagePlugin.info('排序功能开发中');
-      break;
-    case 8: // 列表
+    case 7: // 列表
       if (customColumnDialogRef.value) {
         customColumnDialogRef.value.show();
       }

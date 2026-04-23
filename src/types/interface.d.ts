@@ -12,6 +12,8 @@ export interface RouteMeta {
   keepAlive?: boolean;
   frameSrc?: string;
   frameBlank?: boolean;
+  /** 二级悬停浮层内不展示该分组标题（仅展开子链接，用于与父级标题重复时） */
+  hideFlyoutSubgroupTitle?: boolean;
 }
 
 export interface MenuRoute {

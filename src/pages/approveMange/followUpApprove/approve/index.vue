@@ -77,6 +77,7 @@ import { computed, defineAsyncComponent, onBeforeMount, onMounted, ref, withDefa
 import { useRoute, useRouter } from 'vue-router';
 
 import { getFollowDetail } from '@/api/customer/customer';
+import { resolveFileUrl } from '@/utils/fileUrl';
 
 defineOptions({
   name: 'FollowUpApprove',
@@ -115,14 +116,18 @@ const firstApprover = computed(() => 'xxx');
 // const secondApprover = computed(() => 'xxx');
 const finalApprover = computed(() => 'xxx');
 
-const handleApprove = () => {
+const handleApprove = async () => {
   const id = route.query.id;
   if (!id) {
-    MessagePlugin.error('缺少客户ID，无法进行审批');
+    MessagePlugin.error('缺少跟进ID，无法进行审批');
     return;
   }
+  const d = followDetail.value;
+  const followUserId = d.follow_user_id ?? d.create_user_id ?? d.user_id;
+  const defaultNotifyUserIds =
+    followUserId !== undefined && followUserId !== null && followUserId !== '' ? [followUserId] : [];
   if (approveSuccessDialogRef.value) {
-    approveSuccessDialogRef.value.show(id);
+    await approveSuccessDialogRef.value.show(id, { defaultNotifyUserIds });
   }
 };
 const isDetail = Number(route.query.isDetail);
@@ -144,22 +149,25 @@ const handleApprovalSuccess = () => {
   router.push('/followUpManagement/list');
 };
 
-// 打卡图片
+// 打卡图片（接口字段为 *_photo，兼容历史 *_image / *_img）
 const defaultImageUrl = '';
-const punchImages = computed(() => [
-  {
-    label: '出发',
-    src: followDetail.value.departure_image || followDetail.value.departure_img || '',
-  },
-  {
-    label: '到达',
-    src: followDetail.value.arrival_image || followDetail.value.arrival_img || '',
-  },
-  {
-    label: '离开',
-    src: followDetail.value.leave_image || followDetail.value.leave_img || '',
-  },
-]);
+const punchImages = computed(() => {
+  const d = followDetail.value;
+  return [
+    {
+      label: '出发',
+      src: resolveFileUrl(d.departure_photo || d.departure_image || d.departure_img),
+    },
+    {
+      label: '到达',
+      src: resolveFileUrl(d.arrival_photo || d.arrival_image || d.arrival_img),
+    },
+    {
+      label: '离开',
+      src: resolveFileUrl(d.leave_photo || d.leave_image || d.leave_img),
+    },
+  ];
+});
 
 const onError: ImageProps['onError'] = () => {
   // 保持静默，图片失败时仍然展示占位

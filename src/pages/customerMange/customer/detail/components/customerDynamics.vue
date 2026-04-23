@@ -272,8 +272,6 @@ const handleDeleteComment = async (record: any) => {
 const handleViewDetail = (record: any) => {
   if (followUpDetailRef.value) {
     followUpDetailRef.value.show(record);
-  } else {
-    MessagePlugin.info('查看详情功能开发中');
   }
 };
 
@@ -307,11 +305,6 @@ const handleDeleteRecord = (record: any) => {
       confirmDia.hide();
     },
   });
-};
-
-// 导出
-const handleExport = () => {
-  MessagePlugin.success('导出功能开发中');
 };
 
 // 分页变化

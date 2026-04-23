@@ -54,7 +54,7 @@
     <t-card :bordered="false" class="table-card">
       <div class="summary-toolbar">
         <div class="summary-text">
-          预计销售金额：{{ formatMoney(summary.estimated) }}，实际销售金额：{{ formatMoney(summary.actual) }}
+          预计销售金额：{{ formatMoney(summary.estimated) }}，实际销售金额：{{ formatMoney(summary.actual) }}（漏斗为五阶段占比：锁单→跟进→报价→购买→流失）
         </div>
         <t-button theme="default" variant="outline" @click="handleExport">
           <template #icon><t-icon name="upload" /></template>
@@ -93,8 +93,11 @@ import type { PrimaryTableCol } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getSalesFunnel } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { monthRangeParams, statisticsScope } from '../statisticsRequest';
 
 defineOptions({
   name: 'SalesFunnelAnalysis',
@@ -102,14 +105,7 @@ defineOptions({
 
 echarts.use([TooltipComponent, LegendComponent, GridComponent, FunnelChart, CanvasRenderer]);
 
-/** 漏斗从上到下：锁单 → 跟进 → 报价 → 购买 → 流失（与「销售阶段」一致） */
-const STAGES = [
-  { name: '锁单', value: 500, pct: '36%', color: '#9ec5f7', insideColor: '#fff' },
-  { name: '跟进', value: 350, pct: '25%', color: '#2ec7a6', insideColor: '#fff' },
-  { name: '报价', value: 250, pct: '18%', color: '#f5d547', insideColor: '#333' },
-  { name: '购买', value: 150, pct: '10%', color: '#3d5a9a', insideColor: '#fff' },
-  { name: '流失', value: 120, pct: '8%', color: '#8b7fd8', insideColor: '#fff' },
-] as const;
+const FUNNEL_COLORS = ['#9ec5f7', '#2ec7a6', '#f5d547', '#3d5a9a', '#8b7fd8', '#ec746e', '#5ab1e8'];
 
 const statModeOptions = [{ label: '按月统计', value: 'month' }];
 
@@ -146,45 +142,70 @@ interface TableRow {
   isTotal?: boolean;
 }
 
-const MOCK_QTY = 1000;
-const MOCK_RATE = '10%';
-const MOCK_EST = 1_000_000;
-const MOCK_PROB = 900_000;
+const loadingData = ref(false);
 
-function buildTableData(): TableRow[] {
-  const rows: TableRow[] = STAGES.map((s, i) => ({
-    rowKey: `s-${i}`,
-    stage: s.name,
-    qty: MOCK_QTY,
-    rateText: s.name === '流失' ? '-' : MOCK_RATE,
-    estimated: MOCK_EST,
-    probability: MOCK_PROB,
-  }));
-  rows.push({
-    rowKey: 'total',
-    stage: '总计',
-    qty: MOCK_QTY,
-    rateText: '-',
-    estimated: MOCK_EST,
-    probability: MOCK_PROB,
-    isTotal: true,
-  });
-  return rows;
-}
-
-const tableData = ref<TableRow[]>(buildTableData());
+const tableData = ref<TableRow[]>([]);
 
 const summary = ref({
-  estimated: MOCK_EST,
-  actual: MOCK_PROB,
+  estimated: 0,
+  actual: 0,
 });
+
+async function fetchFunnel() {
+  loadingData.value = true;
+  try {
+    const range =
+      filters.value.monthRange?.length === 2 ? filters.value.monthRange : defaultMonthRange();
+    const res = await getSalesFunnel({
+      ...statisticsScope(filters.value.deptId, filters.value.userId),
+      ...monthRangeParams(range),
+    });
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || '加载失败');
+      return;
+    }
+    const d = res.data || {};
+    const funnel = (d.funnel || []) as any[];
+    const rows: TableRow[] = funnel.map((r, i) => ({
+      rowKey: String(r.row_key ?? `s-${i}`),
+      stage: String(r.stage ?? r.stage_code ?? '-'),
+      qty: Number(r.qty) || 0,
+      rateText: String(r.rate_text ?? '0%'),
+      estimated: Number(r.estimated) || 0,
+      probability: Number(r.probability) || 0,
+    }));
+    const totalQty = rows.reduce((s, r) => s + r.qty, 0);
+    const totalEst = rows.reduce((s, r) => s + r.estimated, 0);
+    const totalProb = rows.reduce((s, r) => s + r.probability, 0);
+    rows.push({
+      rowKey: 'total',
+      stage: '总计',
+      qty: totalQty,
+      rateText: '-',
+      estimated: totalEst,
+      probability: totalProb,
+      isTotal: true,
+    });
+    tableData.value = rows;
+    summary.value = {
+      estimated: Number(d.summary?.estimated) || totalEst,
+      actual: Number(d.summary?.actual) || 0,
+    };
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
+  }
+}
 
 const columns: PrimaryTableCol[] = [
   { colKey: 'stage', title: '销售阶段', width: 120, cell: 'stage' },
   { colKey: 'qty', title: '数量', width: 100, align: 'right', cell: 'qty' },
   {
     colKey: 'rate',
-    title: '转化率',
+    title: '占比',
     width: 120,
     align: 'center',
     cell: 'rate',
@@ -210,12 +231,14 @@ function renderChart() {
       chartInstance = echarts.init(el);
     }
 
-    const funnelData = STAGES.map((s) => ({
-      value: s.value,
-      name: s.name,
-      itemStyle: { color: s.color },
-      pct: s.pct,
-      insideColor: s.insideColor,
+    const stages = tableData.value.filter((r) => !r.isTotal);
+    const maxQty = Math.max(...stages.map((s) => s.qty), 1);
+    const funnelData = stages.map((s, i) => ({
+      value: s.qty,
+      name: s.stage,
+      itemStyle: { color: FUNNEL_COLORS[i % FUNNEL_COLORS.length] },
+      pct: s.rateText,
+      insideColor: i === 2 ? '#333' : '#fff',
     }));
 
     chartInstance.setOption(
@@ -238,10 +261,10 @@ function renderChart() {
             bottom: 32,
             width: '52%',
             min: 0,
-            max: 500,
+            max: maxQty,
             minSize: '0%',
             maxSize: '100%',
-            sort: 'descending',
+            sort: 'none',
             gap: 4,
             funnelAlign: 'center',
             label: { show: false },
@@ -275,8 +298,8 @@ function renderChart() {
             bottom: 32,
             width: '52%',
             min: 0,
-            max: 500,
-            sort: 'descending',
+            max: maxQty,
+            sort: 'none',
             gap: 4,
             funnelAlign: 'center',
             silent: true,
@@ -361,8 +384,7 @@ async function loadUserOptions() {
 }
 
 function handleSearch() {
-  tableData.value = buildTableData();
-  nextTick(() => renderChart());
+  void fetchFunnel();
 }
 
 function handleReset() {
@@ -372,12 +394,11 @@ function handleReset() {
     deptId: undefined,
     userId: undefined,
   };
-  tableData.value = buildTableData();
-  nextTick(() => renderChart());
+  void fetchFunnel();
 }
 
 function handleExport() {
-  const header = ['销售阶段', '数量', '转化率', '预计销售金额', '概率金额'];
+  const header = ['销售阶段', '数量', '占比', '预计销售金额', '概率金额'];
   const lines = [
     header.join(','),
     ...tableData.value.map((r) =>
@@ -400,11 +421,8 @@ watch(winWidth, () => {
 
 onMounted(() => {
   filters.value.monthRange = defaultMonthRange();
-  nextTick(() => {
-    renderChart();
-  });
   void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
-    nextTick(() => chartInstance?.resize());
+    void fetchFunnel().then(() => nextTick(() => chartInstance?.resize()));
   });
 });
 

@@ -3,14 +3,6 @@
     <!-- 顶部标题和操作按钮 -->
     <div class="contract-header">
       <div class="header-title">合同记录</div>
-      <div class="header-actions">
-        <t-button theme="primary" @click="clickOper(1)">
-          <template #icon>
-            <t-icon name="download" />
-          </template>
-          导出
-        </t-button>
-      </div>
     </div>
 
     <!-- 数据表格 -->
@@ -29,7 +21,7 @@
       >
         <!-- 报价单号列 -->
         <template #contract_no="{ row }">
-          <t-link theme="primary" @click="clickOper(2, row)">
+          <t-link theme="primary" @click="clickOper(1, row)">
             {{ row.contract_no }}
           </t-link>
         </template>
@@ -241,8 +233,11 @@ const handlePageSizeChange = (pageSize: number) => {
 // 操作处理
 const clickOper = (type: number, row?: any) => {
   switch (type) {
-    case 1: // 导出
-      MessagePlugin.info('导出功能开发中');
+    case 1: // 合同编号 / 跳转
+      router.push({
+        path: '/contractMange/detail',
+        query: { id: row.id, status: row.approval_status },
+      });
       break;
     case 6: // 验收
       router.push({

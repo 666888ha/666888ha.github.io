@@ -53,6 +53,7 @@ import { DialogPlugin, MessagePlugin } from 'tdesign-vue-next';
 import { computed, defineAsyncComponent, ref } from 'vue';
 
 import { delFollow, getFollowDetail } from '@/api/customer/customer';
+import { resolveFileUrl } from '@/utils/fileUrl';
 
 const emit = defineEmits(['refresh-list']);
 
@@ -71,23 +72,26 @@ const followDetail = ref<Record<string, any>>({});
 
 // 打卡图片
 const defaultImageUrl = '';
-const punchImages = computed(() => [
-  {
-    title: '出发',
-    label: followDetail.value.departure_time,
-    src: followDetail.value.departure_image || followDetail.value.departure_img || '',
-  },
-  {
-    title: '到达',
-    label: followDetail.value.arrival_time,
-    src: followDetail.value.arrival_image || followDetail.value.arrival_img || '',
-  },
-  {
-    title: '离开',
-    label: followDetail.value.leave_time,
-    src: followDetail.value.leave_image || followDetail.value.leave_img || '',
-  },
-]);
+const punchImages = computed(() => {
+  const d = followDetail.value;
+  return [
+    {
+      title: '出发',
+      label: d.departure_time,
+      src: resolveFileUrl(d.departure_photo || d.departure_image || d.departure_img),
+    },
+    {
+      title: '到达',
+      label: d.arrival_time,
+      src: resolveFileUrl(d.arrival_photo || d.arrival_image || d.arrival_img),
+    },
+    {
+      title: '离开',
+      label: d.leave_time,
+      src: resolveFileUrl(d.leave_photo || d.leave_image || d.leave_img),
+    },
+  ];
+});
 
 const onError: ImageProps['onError'] = () => {
   // 保持静默，图片失败时仍然展示占位

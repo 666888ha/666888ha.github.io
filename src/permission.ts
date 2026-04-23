@@ -24,6 +24,7 @@ router.beforeEach(async (to, from, next) => {
     if (userStore.token) {
       userStore.token = '';
       userStore.userInfo = { name: '', roles: [], id: '' };
+      permissionStore.clearSideMenu();
       permissionStore.restore();
     }
     next();
@@ -38,9 +39,9 @@ router.beforeEach(async (to, from, next) => {
       // 获取用户 roles
       const roles = userStore.roles || [];
 
-      // 初始化路由权限（只在第一次进入时执行一次）
-      if (roles.length > 0 && permissionStore.routers.length === 0) {
-        await permissionStore.initRoutes(roles);
+      // 侧栏菜单：优先 GET /system/menu；失败再回退静态 initRoutes（roles）
+      if (permissionStore.routers.length === 0) {
+        await permissionStore.initSideMenuFromApi(roles);
       }
 
       // 通过 name 或 path 判断路由是否存在，避免新增路由但是 name 未匹配时直接被重定向到首页
@@ -63,6 +64,7 @@ router.beforeEach(async (to, from, next) => {
       // 清除 token，确保能正确跳转到登录页
       userStore.token = '';
       userStore.userInfo = { name: '', roles: [] };
+      permissionStore.clearSideMenu();
       permissionStore.restore();
       next({
         path: '/login',
@@ -96,6 +98,7 @@ router.afterEach((to, from) => {
     // 只清除本地状态，不调用 logout 接口，避免触发 401 循环
     userStore.token = '';
     userStore.userInfo = { name: '', roles: [] };
+    permissionStore.clearSideMenu();
     permissionStore.restore();
   }
   NProgress.done();

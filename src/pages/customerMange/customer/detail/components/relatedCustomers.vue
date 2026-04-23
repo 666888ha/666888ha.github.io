@@ -3,14 +3,6 @@
     <!-- 顶部标题和操作按钮 -->
     <div class="customers-header">
       <div class="header-title">相关客户</div>
-      <div class="header-actions">
-        <t-button theme="primary" @click="clickOper(1)">
-          <template #icon>
-            <t-icon name="download" />
-          </template>
-          导出
-        </t-button>
-      </div>
     </div>
 
     <!-- 数据表格 -->
@@ -213,19 +205,6 @@ const handleViewCustomer = (row: any) => {
     path: '/customerMange/customer/detail',
     query: { id: row.id },
   });
-};
-
-// 操作处理
-const clickOper = (type: number) => {
-  switch (type) {
-    case 1: // 导出
-      if (selectedRowKeys.value.length === 0) {
-        MessagePlugin.warning('请先选择要导出的客户');
-        return;
-      }
-      MessagePlugin.success('导出功能开发中');
-      break;
-  }
 };
 
 onMounted(() => {

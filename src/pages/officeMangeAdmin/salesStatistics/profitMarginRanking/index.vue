@@ -75,6 +75,7 @@
         size="medium"
         bordered
         stripe
+        :loading="loadingData"
         :row-class-name="rowClassName"
       >
         <template #rank="{ row }">
@@ -116,12 +117,15 @@ import { BarChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import type { PrimaryTableCol, RowClassNameParams } from 'tdesign-vue-next';
+import type { PrimaryTableCol, TableRowClassNameParams } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getRankingProfitMargin } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { statisticsScope } from '../statisticsRequest';
 
 defineOptions({
   name: 'ProfitMarginRanking',
@@ -133,33 +137,6 @@ type RankTab = 'individual' | 'department';
 
 const COLOR_DEAL = '#5eadf5';
 const COLOR_EXPENSE = '#52c41a';
-
-const MOCK_DEAL = 1_000_000;
-const MOCK_EXPENSE = 300_000;
-const MOCK_MARGIN = 70;
-
-const EMPLOYEE_NAMES = [
-  '赵小刚',
-  '李小红',
-  '王小明',
-  '周小伟',
-  '孙小军',
-  '吴小丽',
-  '郑小强',
-  '钱小敏',
-  '冯小涛',
-];
-
-const CHART_IND_DEAL = [
-  2_720_000, 2_500_000, 2_300_000, 2_100_000, 1_900_000, 1_700_000, 1_500_000, 1_300_000, 1_100_000,
-];
-const CHART_IND_EXPENSE = CHART_IND_DEAL.map((d) => Math.round(d * 0.3));
-
-const DEPT_LABELS = Array.from({ length: 10 }, (_, i) => `部门名称${i + 1}`);
-const CHART_DEPT_DEAL = [
-  2_800_000, 2_620_000, 2_450_000, 2_280_000, 2_100_000, 1_920_000, 1_750_000, 1_580_000, 1_400_000, 1_220_000,
-];
-const CHART_DEPT_EXPENSE = CHART_DEPT_DEAL.map((d) => Math.round(d * 0.3));
 
 const currentYear = dayjs().year();
 const yearOptions = Array.from({ length: 12 }, (_, i) => {
@@ -190,14 +167,18 @@ function formatMoney(n: number) {
   return `¥ ${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function formatMargin(pct: number) {
+function formatMargin(pct: number | null | undefined) {
+  if (pct == null || Number.isNaN(Number(pct))) return '—';
   return `${pct}%`;
 }
 
-const summaryLine = computed(
-  () =>
-    `成交金额: ${formatMoney(MOCK_DEAL)}, 费用金额: ${formatMoney(MOCK_EXPENSE)}, 利润率: ${MOCK_MARGIN}%`,
-);
+const summaryStats = ref({ deal: 0, expense: 0, marginLabel: '—' });
+const loadingData = ref(false);
+
+const summaryLine = computed(() => {
+  const s = summaryStats.value;
+  return `成交金额: ${formatMoney(s.deal)}, 费用金额: ${formatMoney(s.expense)}, 利润率: ${s.marginLabel}`;
+});
 
 interface IndividualRow {
   rowKey: string;
@@ -206,7 +187,7 @@ interface IndividualRow {
   dept: string;
   dealAmount: number;
   expenseAmount: number;
-  marginPct: number;
+  marginPct: number | null;
 }
 
 interface DepartmentRow {
@@ -215,34 +196,79 @@ interface DepartmentRow {
   name: string;
   dealAmount: number;
   expenseAmount: number;
-  marginPct: number;
+  marginPct: number | null;
 }
 
-function buildIndividualRows(): IndividualRow[] {
-  return EMPLOYEE_NAMES.map((_, i) => ({
-    rowKey: `e-${i}`,
-    rank: i + 1,
-    name: '赵小刚',
-    dept: '销售一部',
-    dealAmount: MOCK_DEAL,
-    expenseAmount: MOCK_EXPENSE,
-    marginPct: MOCK_MARGIN,
-  }));
+const individualRows = ref<IndividualRow[]>([]);
+const departmentRows = ref<DepartmentRow[]>([]);
+
+function rankRequestParams() {
+  const p: Record<string, any> = {
+    ...statisticsScope(filters.value.deptId, filters.value.userId),
+    dimension: activeTab.value === 'individual' ? 'individual' : 'department',
+    year: filters.value.year,
+  };
+  const dr = filters.value.dateRange;
+  if (dr?.length === 2 && dr[0] && dr[1]) {
+    p.start_date = dayjs(dr[0]).format('YYYY-MM-DD');
+    p.end_date = dayjs(dr[1]).format('YYYY-MM-DD');
+  }
+  return p;
 }
 
-function buildDepartmentRows(): DepartmentRow[] {
-  return DEPT_LABELS.map((_, i) => ({
-    rowKey: `d-${i}`,
-    rank: i + 1,
-    name: '销售一部',
-    dealAmount: MOCK_DEAL,
-    expenseAmount: MOCK_EXPENSE,
-    marginPct: MOCK_MARGIN,
-  }));
+async function fetchRanking() {
+  loadingData.value = true;
+  try {
+    const res = await getRankingProfitMargin(rankRequestParams());
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || '加载失败');
+      return;
+    }
+    const list = ((res.data as any)?.list || []) as any[];
+    const mappedInd: IndividualRow[] = [];
+    const mappedDept: DepartmentRow[] = [];
+    if (activeTab.value === 'individual') {
+      for (let i = 0; i < list.length; i++) {
+        const r = list[i];
+        mappedInd.push({
+          rowKey: String(r.row_key ?? `r-${i}`),
+          rank: Number(r.rank) || i + 1,
+          name: r.name ?? '',
+          dept: r.dept ?? '',
+          dealAmount: Number(r.revenue) || 0,
+          expenseAmount: Number(r.cost) || 0,
+          marginPct: r.margin_pct === null || r.margin_pct === undefined ? null : Number(r.margin_pct),
+        });
+      }
+      individualRows.value = mappedInd;
+    } else {
+      for (let i = 0; i < list.length; i++) {
+        const r = list[i];
+        mappedDept.push({
+          rowKey: String(r.row_key ?? `r-${i}`),
+          rank: Number(r.rank) || i + 1,
+          name: r.name ?? '',
+          dealAmount: Number(r.revenue) || 0,
+          expenseAmount: Number(r.cost) || 0,
+          marginPct: r.margin_pct === null || r.margin_pct === undefined ? null : Number(r.margin_pct),
+        });
+      }
+      departmentRows.value = mappedDept;
+    }
+    const rows = tableRows.value as (IndividualRow | DepartmentRow)[];
+    const dealT = rows.reduce((s, r) => s + r.dealAmount, 0);
+    const expT = rows.reduce((s, r) => s + r.expenseAmount, 0);
+    const marginLabel =
+      dealT > 0 ? `${Math.round(((dealT - expT) / dealT) * 10000) / 100}%` : '—';
+    summaryStats.value = { deal: dealT, expense: expT, marginLabel };
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
+  }
 }
-
-const individualRows = ref<IndividualRow[]>(buildIndividualRows());
-const departmentRows = ref<DepartmentRow[]>(buildDepartmentRows());
 
 const tableRows = computed(() =>
   activeTab.value === 'individual' ? individualRows.value : departmentRows.value,
@@ -268,7 +294,7 @@ const tableColumns = computed<PrimaryTableCol[]>(() => {
   ];
 });
 
-function rowClassName({ rowIndex }: RowClassNameParams<unknown>) {
+function rowClassName({ rowIndex }: TableRowClassNameParams<unknown>) {
   if (activeTab.value === 'individual' && rowIndex === 0) return 'rank-top-row';
   return '';
 }
@@ -279,9 +305,10 @@ function renderChart() {
   if (!chartInstance) chartInstance = echarts.init(el);
 
   const isInd = activeTab.value === 'individual';
-  const categories = isInd ? EMPLOYEE_NAMES : DEPT_LABELS;
-  const dealData = isInd ? [...CHART_IND_DEAL] : [...CHART_DEPT_DEAL];
-  const expenseData = isInd ? [...CHART_IND_EXPENSE] : [...CHART_DEPT_EXPENSE];
+  const rows = tableRows.value as (IndividualRow | DepartmentRow)[];
+  const categories = rows.map((r) => r.name);
+  const dealData = rows.map((r) => r.dealAmount);
+  const expenseData = rows.map((r) => r.expenseAmount);
 
   chartInstance.setOption(
     {
@@ -294,7 +321,7 @@ function renderChart() {
           if (!list.length) return '';
           const lines = [`${list[0].name}`];
           for (const p of list) {
-            lines.push(`${p.seriesName}: ${p.value.toLocaleString('zh-CN')}`);
+            lines.push(`${p.seriesName}: ${formatMoney(p.value)}`);
           }
           return lines.join('<br/>');
         },
@@ -320,8 +347,7 @@ function renderChart() {
       yAxis: {
         type: 'value',
         min: 0,
-        max: 3_000_000,
-        interval: 600_000,
+        scale: true,
         splitLine: { lineStyle: { type: 'dashed', color: '#e5e6eb' } },
         axisLabel: {
           fontSize: 11,
@@ -390,18 +416,12 @@ async function loadUserOptions() {
   }
 }
 
-function refreshRows() {
-  individualRows.value = buildIndividualRows();
-  departmentRows.value = buildDepartmentRows();
-}
-
 function handleTabChange() {
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleSearch() {
-  refreshRows();
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleReset() {
@@ -411,8 +431,7 @@ function handleReset() {
     deptId: undefined,
     userId: undefined,
   };
-  refreshRows();
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleSort() {
@@ -433,7 +452,8 @@ function handleExport() {
           if (k === 'dealAmount' || k === 'expenseAmount') {
             return typeof v === 'number' ? formatMoney(v as number) : String(v ?? '');
           }
-          if (k === 'marginPct') return `${v ?? ''}%`;
+          if (k === 'marginPct')
+            return v === null || v === undefined || v === '' ? '—' : `${v}%`;
           return String(v ?? '');
         })
         .join(','),
@@ -452,10 +472,9 @@ function handleExport() {
 watch(winWidth, () => chartInstance?.resize());
 
 onMounted(() => {
-  nextTick(() => renderChart());
-  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
-    nextTick(() => chartInstance?.resize());
-  });
+  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() =>
+    void fetchRanking().then(() => nextTick(() => chartInstance?.resize())),
+  );
 });
 
 onUnmounted(() => disposeChart());

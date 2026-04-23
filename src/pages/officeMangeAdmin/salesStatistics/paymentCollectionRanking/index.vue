@@ -75,6 +75,7 @@
         size="medium"
         bordered
         stripe
+        :loading="loadingData"
         :row-class-name="rowClassName"
       >
         <template #rank="{ row }">
@@ -116,12 +117,15 @@ import { BarChart } from 'echarts/charts';
 import { GridComponent, TooltipComponent } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import type { PrimaryTableCol, RowClassNameParams } from 'tdesign-vue-next';
+import type { PrimaryTableCol, TableRowClassNameParams } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getRankingPaymentCollection } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { statisticsScope } from '../statisticsRequest';
 
 defineOptions({
   name: 'PaymentCollectionDataRanking',
@@ -132,33 +136,6 @@ echarts.use([TooltipComponent, GridComponent, BarChart, CanvasRenderer]);
 type RankTab = 'individual' | 'department';
 
 const BAR_COLOR = '#5eadf5';
-
-const MOCK_COLLECTION = 1_000_000;
-const MOCK_TIMES = 200;
-const MOCK_OVERDUE = 200;
-const MOCK_INVOICE_AMT = 900_000;
-const MOCK_INVOICE_COUNT = 200;
-
-const EMPLOYEE_NAMES = [
-  '赵小刚',
-  '李小红',
-  '王小明',
-  '周小伟',
-  '孙小军',
-  '吴小丽',
-  '郑小强',
-  '钱小敏',
-  '冯小涛',
-];
-
-const CHART_VALUES_IND = [
-  1_720_000, 1_580_000, 1_420_000, 1_300_000, 1_150_000, 1_020_000, 900_000, 780_000, 650_000,
-];
-
-const DEPT_LABELS = Array.from({ length: 10 }, (_, i) => `部门名称${i + 1}`);
-const CHART_VALUES_DEPT = [
-  1_720_000, 1_600_000, 1_480_000, 1_360_000, 1_240_000, 1_120_000, 1_000_000, 880_000, 760_000, 640_000,
-];
 
 const currentYear = dayjs().year();
 const yearOptions = Array.from({ length: 12 }, (_, i) => {
@@ -189,11 +166,21 @@ function formatMoney(n: number) {
   return `¥ ${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+const summaryStats = ref({
+  collection: 0,
+  times: 0,
+  overdue: 0,
+  invoiceAmount: 0,
+  invoiceCount: 0,
+});
+const loadingData = ref(false);
+
 const summaryLine = computed(() => {
+  const s = summaryStats.value;
   if (activeTab.value === 'individual') {
-    return `回款金额: ${formatMoney(MOCK_COLLECTION)}, 回款次数: ${MOCK_TIMES}, 逾期数量: ${MOCK_OVERDUE}, 开票金额: ${formatMoney(MOCK_INVOICE_AMT)}`;
+    return `回款金额: ${formatMoney(s.collection)}, 回款次数: ${s.times}, 逾期数量: ${s.overdue}, 开票金额: ${formatMoney(s.invoiceAmount)}`;
   }
-  return `回款金额: ${formatMoney(MOCK_COLLECTION)}, 回款次数: ${MOCK_TIMES}, 逾期数量: ${MOCK_OVERDUE}, 开票数量: ${MOCK_INVOICE_COUNT}`;
+  return `回款金额: ${formatMoney(s.collection)}, 回款次数: ${s.times}, 逾期数量: ${s.overdue}, 开票数量: ${s.invoiceCount}`;
 });
 
 interface IndividualRow {
@@ -217,33 +204,64 @@ interface DepartmentRow {
   invoiceCount: number;
 }
 
-function buildIndividualRows(): IndividualRow[] {
-  return EMPLOYEE_NAMES.map((_, i) => ({
-    rowKey: `e-${i}`,
-    rank: i + 1,
-    name: '赵小刚',
-    dept: '销售一部',
-    collection: MOCK_COLLECTION,
-    times: MOCK_TIMES,
-    overdue: MOCK_OVERDUE,
-    invoiceAmount: MOCK_INVOICE_AMT,
-  }));
+const individualRows = ref<IndividualRow[]>([]);
+const departmentRows = ref<DepartmentRow[]>([]);
+
+function rankRequestParams() {
+  return {
+    ...statisticsScope(filters.value.deptId, filters.value.userId),
+    dimension: activeTab.value === 'individual' ? 'individual' : 'department',
+    year: filters.value.year,
+  };
 }
 
-function buildDepartmentRows(): DepartmentRow[] {
-  return DEPT_LABELS.map((_, i) => ({
-    rowKey: `d-${i}`,
-    rank: i + 1,
-    name: '销售一部',
-    collection: MOCK_COLLECTION,
-    times: MOCK_TIMES,
-    overdue: MOCK_OVERDUE,
-    invoiceCount: MOCK_INVOICE_COUNT,
-  }));
+async function fetchRanking() {
+  loadingData.value = true;
+  try {
+    const res = await getRankingPaymentCollection(rankRequestParams());
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || '加载失败');
+      return;
+    }
+    const list = ((res.data as any)?.list || []) as any[];
+    if (activeTab.value === 'individual') {
+      individualRows.value = list.map((r, i) => ({
+        rowKey: String(r.row_key ?? `r-${i}`),
+        rank: Number(r.rank) || i + 1,
+        name: r.name ?? '',
+        dept: r.dept ?? '',
+        collection: Number(r.collection) || 0,
+        times: Number(r.times) || 0,
+        overdue: Number(r.overdue) || 0,
+        invoiceAmount: Number(r.invoice_amount) || 0,
+      }));
+    } else {
+      departmentRows.value = list.map((r, i) => ({
+        rowKey: String(r.row_key ?? `r-${i}`),
+        rank: Number(r.rank) || i + 1,
+        name: r.name ?? '',
+        collection: Number(r.collection) || 0,
+        times: Number(r.times) || 0,
+        overdue: Number(r.overdue) || 0,
+        invoiceCount: Number(r.invoice_count) || 0,
+      }));
+    }
+    const rows = tableRows.value as (IndividualRow | DepartmentRow)[];
+    summaryStats.value = {
+      collection: rows.reduce((s, r) => s + r.collection, 0),
+      times: rows.reduce((s, r) => s + r.times, 0),
+      overdue: rows.reduce((s, r) => s + r.overdue, 0),
+      invoiceAmount: rows.reduce((s, r) => s + ('invoiceAmount' in r ? r.invoiceAmount : 0), 0),
+      invoiceCount: rows.reduce((s, r) => s + ('invoiceCount' in r ? r.invoiceCount : 0), 0),
+    };
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
+  }
 }
-
-const individualRows = ref<IndividualRow[]>(buildIndividualRows());
-const departmentRows = ref<DepartmentRow[]>(buildDepartmentRows());
 
 const tableRows = computed(() =>
   activeTab.value === 'individual' ? individualRows.value : departmentRows.value,
@@ -271,7 +289,7 @@ const tableColumns = computed<PrimaryTableCol[]>(() => {
   ];
 });
 
-function rowClassName({ rowIndex }: RowClassNameParams<unknown>) {
+function rowClassName({ rowIndex }: TableRowClassNameParams<unknown>) {
   if (activeTab.value === 'individual' && rowIndex === 0) return 'rank-top-row';
   return '';
 }
@@ -282,8 +300,9 @@ function renderChart() {
   if (!chartInstance) chartInstance = echarts.init(el);
 
   const isInd = activeTab.value === 'individual';
-  const categories = isInd ? EMPLOYEE_NAMES : DEPT_LABELS;
-  const data = isInd ? [...CHART_VALUES_IND] : [...CHART_VALUES_DEPT];
+  const rows = tableRows.value as (IndividualRow | DepartmentRow)[];
+  const categories = rows.map((r) => r.name);
+  const data = rows.map((r) => r.collection);
 
   chartInstance.setOption(
     {
@@ -294,7 +313,7 @@ function renderChart() {
           const list = params as { name: string; value: number }[];
           const p = list[0];
           if (!p) return '';
-          return `${p.name}<br/>回款金额: ${p.value.toLocaleString('zh-CN')}`;
+          return `${p.name}<br/>回款金额: ${formatMoney(p.value)}`;
         },
       },
       legend: { show: false },
@@ -314,8 +333,7 @@ function renderChart() {
       yAxis: {
         type: 'value',
         min: 0,
-        max: 2_000_000,
-        interval: 400_000,
+        scale: true,
         splitLine: { lineStyle: { type: 'dashed', color: '#e5e6eb' } },
         axisLabel: {
           fontSize: 11,
@@ -377,18 +395,12 @@ async function loadUserOptions() {
   }
 }
 
-function refreshRows() {
-  individualRows.value = buildIndividualRows();
-  departmentRows.value = buildDepartmentRows();
-}
-
 function handleTabChange() {
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleSearch() {
-  refreshRows();
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleReset() {
@@ -398,8 +410,7 @@ function handleReset() {
     deptId: undefined,
     userId: undefined,
   };
-  refreshRows();
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleSort() {
@@ -438,10 +449,9 @@ function handleExport() {
 watch(winWidth, () => chartInstance?.resize());
 
 onMounted(() => {
-  nextTick(() => renderChart());
-  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
-    nextTick(() => chartInstance?.resize());
-  });
+  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() =>
+    void fetchRanking().then(() => nextTick(() => chartInstance?.resize())),
+  );
 });
 
 onUnmounted(() => disposeChart());

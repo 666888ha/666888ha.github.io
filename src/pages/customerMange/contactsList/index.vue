@@ -85,14 +85,6 @@
         </t-button> -->
       </div>
       <div class="operation-right">
-        <t-tooltip content="排序">
-          <t-button theme="default" variant="outline" @click="clickOper(4)">
-            <template #icon>
-              <t-icon name="swap" />
-            </template>
-            排序
-          </t-button>
-        </t-tooltip>
       </div>
     </div>
 
@@ -368,9 +360,6 @@ const clickOper = async (type: number, row) => {
       break;
     case 3: // 导出
       listExport.value.openExportProgress();
-      break;
-    case 4: // 排序
-      MessagePlugin.info('排序功能开发中');
       break;
     case 5: // 编辑
       router.push({

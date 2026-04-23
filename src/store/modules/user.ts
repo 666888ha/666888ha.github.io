@@ -74,6 +74,9 @@ export const useUserStore = defineStore('user', {
             };
           }
 
+          // 新会话侧栏须重新拉 /system/menu，避免沿用上一位用户的菜单
+          usePermissionStore().clearSideMenu();
+
           return {
             code: 200,
             message: data.msg || data.message || '登录成功',
@@ -127,6 +130,7 @@ export const useUserStore = defineStore('user', {
       // 先清除本地状态，避免接口调用失败时影响用户体验
       this.token = '';
       this.userInfo = { ...InitUserInfo };
+      usePermissionStore().clearSideMenu();
 
       try {
         // 调用退出登录接口
@@ -159,14 +163,11 @@ export const useUserStore = defineStore('user', {
   },
   persist: {
     afterRestore: () => {
-      // 在 afterRestore 中，this 上下文可能未正确绑定
-      // 所以直接使用 useUserStore() 获取 store 实例
       const userStore = useUserStore();
       const permissionStore = usePermissionStore();
-      // 使用保存的 roles 初始化路由
-      const roles = userStore.userInfo?.roles || [];
-      if (roles.length > 0) {
-        permissionStore.initRoutes(roles);
+      // 侧栏改由路由守卫里 initSideMenuFromApi 拉取，不在此用静态 roles 拼菜单
+      if (userStore.token) {
+        permissionStore.clearSideMenu();
       }
     },
     key: 'user',

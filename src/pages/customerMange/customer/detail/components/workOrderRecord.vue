@@ -3,14 +3,6 @@
     <!-- 顶部标题和操作按钮 -->
     <div class="work-order-header">
       <div class="header-title">工单记录</div>
-      <div class="header-actions">
-        <t-button theme="primary" @click="clickOper(1)">
-          <template #icon>
-            <t-icon name="download" />
-          </template>
-          导出
-        </t-button>
-      </div>
     </div>
 
     <!-- 数据表格 -->
@@ -68,7 +60,6 @@
 </template>
 <script setup lang="ts">
 import type { PrimaryTableCol } from 'tdesign-vue-next';
-import { MessagePlugin } from 'tdesign-vue-next';
 import { ref } from 'vue';
 
 defineOptions({
@@ -295,14 +286,6 @@ const loadTableData = async () => {
   }, 300);
 };
 
-// 操作处理
-const clickOper = (type: number) => {
-  switch (type) {
-    case 1: // 导出
-      MessagePlugin.info('导出功能开发中');
-      break;
-  }
-};
 </script>
 <style lang="less" scoped>
 .work-order-container {

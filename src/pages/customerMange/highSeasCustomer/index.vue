@@ -65,6 +65,8 @@
     <!-- 操作按钮和表格控制 -->
     <div class="operation-bar">
       <div class="operation-left">
+        <!-- 公海客户不需要导入导出（仅客户列表保留） -->
+        <!--
         <t-button theme="default" variant="outline" @click="clickOper(1)">
           <template #icon>
             <t-icon name="upload" />
@@ -77,6 +79,7 @@
           </template>
           导出
         </t-button>
+        -->
         <t-button theme="default" variant="outline" @click="clickOper(3)">
           <template #icon>
             <t-icon name="usergroup" />
@@ -109,16 +112,8 @@
           </template>
           公海规则说明
         </t-button>
-        <t-tooltip content="排序">
-          <t-button theme="default" variant="outline" @click="clickOper(7)">
-            <template #icon>
-              <t-icon name="swap" />
-            </template>
-            排序
-          </t-button>
-        </t-tooltip>
         <t-tooltip content="列表">
-          <t-button theme="default" variant="outline" @click="clickOper(8)">
+          <t-button theme="default" variant="outline" @click="clickOper(7)">
             <template #icon>
               <t-icon name="view-list" />
             </template>
@@ -201,9 +196,9 @@
         />
       </div>
     </div>
-    <!-- 导入导出 -->
-    <baseImport ref="listImport" />
-    <baseExport ref="listExport" />
+    <!-- 公海客户不需要导入导出 -->
+    <!-- <baseImport ref="listImport" /> -->
+    <!-- <baseExport ref="listExport" /> -->
     <!-- 自定义列弹框 -->
     <custom-column-dialog
       ref="customColumnDialogRef"
@@ -237,8 +232,8 @@ defineOptions({
   name: 'HighSeasCustomerList',
 });
 const CustomColumnDialog = defineAsyncComponent(() => import('@/components/BaseCustomColumn/index.vue'));
-const baseImport = defineAsyncComponent(() => import('@/components/baseImport/index.vue'));
-const baseExport = defineAsyncComponent(() => import('@/components/baseExport/index.vue'));
+// const baseImport = defineAsyncComponent(() => import('@/components/baseImport/index.vue'));
+// const baseExport = defineAsyncComponent(() => import('@/components/baseExport/index.vue'));
 const RulesDescriptionDialog = defineAsyncComponent(() => import('./components/rulesDescriptionDialog.vue'));
 const mergeCustomerDialog = defineAsyncComponent(() => import('../components/mergeCustomerDialog.vue'));
 const batchEditDialog = defineAsyncComponent(() => import('../components/batchEditDialog.vue'));
@@ -249,8 +244,8 @@ const customColumnDialogRef = ref(null);
 const rulesDescriptionDialogRef = ref(null);
 const mergeCustomerDialogRef = ref(null);
 const batchEditDialogRef = ref(null);
-const listImport = ref(null);
-const listExport = ref(null);
+// const listImport = ref(null);
+// const listExport = ref(null);
 const moveWaste = ref(null);
 
 // 搜索表单
@@ -592,13 +587,8 @@ const handleAdvancedFilter = () => {
 const clickOper = (type: number, row) => {
   let selectedCustomers = [];
   switch (type) {
-    case 1: // 导入
-      MessagePlugin.info('导入功能开发中');
-      // listImport.value.show();
-      break;
-    case 2: // 导出
-      MessagePlugin.info('导出功能开发中');
-      // listExport.value.openExportProgress();
+    case 1: // 导入（已隐藏）
+    case 2: // 导出（已隐藏）
       break;
     case 3: // 领取客户
       if (selectedRowKeys.value.length === 0) {
@@ -632,10 +622,7 @@ const clickOper = (type: number, row) => {
         rulesDescriptionDialogRef.value.show();
       }
       break;
-    case 7: // 排序
-      MessagePlugin.info('排序功能开发中');
-      break;
-    case 8: // 列表
+    case 7: // 列表
       if (customColumnDialogRef.value) {
         customColumnDialogRef.value.show();
       }

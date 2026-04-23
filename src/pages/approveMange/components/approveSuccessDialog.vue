@@ -98,16 +98,25 @@ const loadEmployeeOptions = async () => {
   }
 };
 
+export type ApproveSuccessDialogShowOptions = {
+  /** 打开时默认勾选的通知人（如客户归属人员 user id） */
+  defaultNotifyUserIds?: Array<string | number>;
+};
+
 // 显示弹框
-const show = (customerId: string | number) => {
+const show = async (customerId: string | number, options?: ApproveSuccessDialogShowOptions) => {
   currentCustomerId.value = customerId;
   approvalComment.value = '';
   notifyUserIds.value = [];
   dialogVisible.value = true;
-  // 如果员工列表未加载，则加载
-  if (employeeOptions.value.length === 0) {
-    loadEmployeeOptions();
-  }
+  await loadEmployeeOptions();
+
+  const raw = options?.defaultNotifyUserIds?.filter((id) => id !== '' && id != null) ?? [];
+  notifyUserIds.value = raw.map((id) => {
+    const str = String(id);
+    const opt = employeeOptions.value.find((o) => String(o.value) === str);
+    return opt ? opt.value : id;
+  });
 };
 
 // 关闭弹框

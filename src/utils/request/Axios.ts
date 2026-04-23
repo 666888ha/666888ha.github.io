@@ -251,8 +251,13 @@ export class VAxios {
     const transform = this.getTransform();
 
     const { requestOptions } = this.options;
+    // 支持把 requestOptions 写在第一个参数 config 里（与 request.get(config) 单参写法兼容）
+    const inlineRequestOpts = (conf as Record<string, unknown>).requestOptions as RequestOptions | undefined;
+    if (inlineRequestOpts !== undefined) {
+      delete (conf as Record<string, unknown>).requestOptions;
+    }
 
-    const opt: RequestOptions = { ...requestOptions, ...options };
+    const opt: RequestOptions = { ...requestOptions, ...inlineRequestOpts, ...options };
 
     const { beforeRequestHook, requestCatchHook, transformRequestHook } = transform || {};
     if (beforeRequestHook && isFunction(beforeRequestHook)) {

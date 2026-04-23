@@ -44,11 +44,15 @@
     <t-card :bordered="false" class="table-card">
       <div class="summary-toolbar">
         <div class="summary-text">
-          报价数量: {{ summary.quoteCount }}, 预计销售金额: {{ formatMoney(summary.estimated) }}, 实际销售金额:
+          报价数量: {{ summary.quoteCount }}，销售金额: {{ formatMoney(summary.salesAmount) }}，成交几率(加权):
+          {{ formatPct(summary.winRateWeightedPct) }}，概率金额: {{ formatMoney(summary.probabilityAmount) }}，实际销售金额:
           {{ formatMoney(summary.actual) }}
         </div>
         <div class="summary-actions">
-          <t-tooltip content="统计当月以及后11个月的销售预测情况" placement="top">
+          <t-tooltip
+            content="按月统计报价：销售金额为报价单金额合计；概率金额=各单金额×该单成交几率(win_rate)之和；成交几率(加权)=概率金额÷销售金额。"
+            placement="top"
+          >
             <t-icon name="help-circle" class="help-icon" />
           </t-tooltip>
           <t-button theme="default" variant="outline" @click="handleExport">
@@ -57,15 +61,29 @@
           </t-button>
         </div>
       </div>
-      <t-table :data="tableData" :columns="columns" row-key="monthKey" :pagination="false" size="medium" bordered>
+      <t-table
+        :data="tableData"
+        :columns="columns"
+        row-key="monthKey"
+        :pagination="false"
+        size="medium"
+        bordered
+        :loading="loadingData"
+      >
         <template #month="{ row }">
           <t-link theme="primary" @click.prevent>{{ row.monthLabel }}</t-link>
         </template>
         <template #quoteCount="{ row }">
           {{ row.quoteCount }}
         </template>
-        <template #estimated="{ row }">
+        <template #salesAmt="{ row }">
           {{ formatMoney(row.estimated) }}
+        </template>
+        <template #winRate="{ row }">
+          {{ formatPct(row.winRateWeightedPct) }}
+        </template>
+        <template #probAmt="{ row }">
+          {{ formatMoney(row.probabilityAmount) }}
         </template>
         <template #actual="{ row }">
           {{ formatMoney(row.actual) }}
@@ -84,8 +102,10 @@ import type { PrimaryTableCol } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getSalesForecast } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+import dayjs from 'dayjs';
 
 defineOptions({
   name: 'SalesForecastAnalysis',
@@ -98,6 +118,10 @@ interface ForecastRow {
   monthLabel: string;
   quoteCount: number;
   estimated: number;
+  /** 金额加权平均成交几率（%），与报价单 win_rate 一致口径 */
+  winRateWeightedPct: number;
+  /** 概率金额（图表第二柱） */
+  probabilityAmount: number;
   actual: number;
 }
 
@@ -133,51 +157,101 @@ function getRollingMonthLabels(base = new Date()): { key: string; label: string 
   return list;
 }
 
-/** 示意曲线：中间高、两侧低（与参考图趋势一致） */
-function buildMockSeries(months: number) {
-  const factors = [0.52, 0.78, 1.15, 1.72, 2.05, 2.42, 2.58, 2.35, 1.88, 1.42, 0.95, 0.62].slice(0, months);
-  const estimated = factors.map((f) => Math.round(f * 1_000_000));
-  const probability = factors.map((f) => Math.round(f * 0.72 * 1_000_000));
-  return { estimated, probability };
-}
-
 const monthMeta = ref(getRollingMonthLabels());
 const tableData = ref<ForecastRow[]>([]);
+const loadingData = ref(false);
 
-function rebuildTableAndChartData() {
-  const months = monthMeta.value;
-  const { estimated, probability } = buildMockSeries(months.length);
-  tableData.value = months.map((m, i) => ({
-    monthKey: m.key,
-    monthLabel: m.key,
-    quoteCount: 1000,
-    estimated: estimated[i] ?? 0,
-    actual: probability[i] ?? 0,
-  }));
-  nextTick(() => renderChart());
+const summaryStats = ref({
+  quoteCount: 0,
+  salesAmount: 0,
+  winRateWeightedPct: 0,
+  probabilityAmount: 0,
+  actual: 0,
+});
+
+function scopeParams() {
+  return {
+    dept_id: filters.value.deptId,
+    user_id: filters.value.userId,
+  };
 }
 
-const summary = computed(() => {
-  const rows = tableData.value;
-  if (!rows.length) {
-    return { quoteCount: 0, estimated: 0, actual: 0 };
+async function rebuildTableAndChartData() {
+  loadingData.value = true;
+  try {
+    const baseMonth = dayjs().format('YYYY-MM');
+    const res = await getSalesForecast({ ...scopeParams(), base_month: baseMonth });
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || '加载失败');
+      return;
+    }
+    const d = res.data || {};
+    const list = d.list || [];
+    monthMeta.value = list.map((r: any) => ({
+      key: r.month_key,
+      label: r.month_label || r.month_key,
+    }));
+    tableData.value = list.map((r: any) => {
+      const est = Number(r.estimated) || 0;
+      const prob = Number(r.probability_amount) || 0;
+      const w =
+        r.win_rate_weighted_pct !== undefined && r.win_rate_weighted_pct !== null
+          ? Number(r.win_rate_weighted_pct)
+          : est > 0
+            ? Math.round((prob / est) * 10000) / 100
+            : 0;
+      return {
+        monthKey: r.month_key,
+        monthLabel: r.month_label || r.month_key,
+        quoteCount: Number(r.quote_count) || 0,
+        estimated: est,
+        winRateWeightedPct: w,
+        probabilityAmount: prob,
+        actual: Number(r.actual) || 0,
+      };
+    });
+    const sm = d.summary || {};
+    const rows = tableData.value;
+    const sumEst = rows.reduce((s, r) => s + r.estimated, 0);
+    const sumProb = rows.reduce((s, r) => s + r.probabilityAmount, 0);
+    summaryStats.value = {
+      quoteCount: Number(sm.quote_count) || rows.reduce((s, r) => s + r.quoteCount, 0),
+      salesAmount: Number(sm.estimated) || sumEst,
+      probabilityAmount: sm.probability_amount != null && sm.probability_amount !== '' ? Number(sm.probability_amount) : sumProb,
+      winRateWeightedPct:
+        sm.win_rate_weighted_pct != null && sm.win_rate_weighted_pct !== ''
+          ? Number(sm.win_rate_weighted_pct)
+          : sumEst > 0
+            ? Math.round((sumProb / sumEst) * 10000) / 100
+            : 0,
+      actual: Number(sm.actual) || rows.reduce((s, r) => s + r.actual, 0),
+    };
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
   }
-  return {
-    quoteCount: rows.reduce((s, r) => s + r.quoteCount, 0),
-    estimated: rows.reduce((s, r) => s + r.estimated, 0),
-    actual: rows.reduce((s, r) => s + r.actual, 0),
-  };
-});
+}
+
+const summary = computed(() => summaryStats.value);
 
 const columns: PrimaryTableCol[] = [
   { colKey: 'month', title: '时间', width: 120, cell: 'month' },
-  { colKey: 'quoteCount', title: '报价数量', width: 120, align: 'right', cell: 'quoteCount' },
-  { colKey: 'estimated', title: '预计销售金额', cell: 'estimated' },
-  { colKey: 'actual', title: '实际销售金额', cell: 'actual' },
+  { colKey: 'quoteCount', title: '报价数量', width: 100, align: 'right', cell: 'quoteCount' },
+  { colKey: 'estimated', title: '销售金额', minWidth: 120, align: 'right', cell: 'salesAmt' },
+  { colKey: 'winRateWeightedPct', title: '成交几率(加权)', width: 120, align: 'right', cell: 'winRate' },
+  { colKey: 'probabilityAmount', title: '概率金额', minWidth: 120, align: 'right', cell: 'probAmt' },
+  { colKey: 'actual', title: '实际销售金额', minWidth: 120, align: 'right', cell: 'actual' },
 ];
 
 function formatMoney(n: number) {
   return `¥ ${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatPct(n: number) {
+  return `${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 }
 
 function renderChart() {
@@ -187,7 +261,8 @@ function renderChart() {
     chartInstance = echarts.init(el);
   }
   const months = monthMeta.value.map((m) => m.label);
-  const { estimated, probability } = buildMockSeries(months.length);
+  const estimated = tableData.value.map((r) => r.estimated);
+  const probability = tableData.value.map((r) => r.probabilityAmount);
 
   chartInstance.setOption(
     {
@@ -198,7 +273,7 @@ function renderChart() {
         valueFormatter: (v: number) => v.toLocaleString('zh-CN'),
       },
       legend: {
-        data: ['预计销售金额', '概率金额'],
+        data: ['销售金额', '概率金额'],
         bottom: 8,
         left: 'center',
       },
@@ -218,15 +293,14 @@ function renderChart() {
       yAxis: {
         type: 'value',
         min: 0,
-        max: 3_000_000,
-        interval: 500_000,
+        scale: true,
         axisLabel: {
           formatter: (val: number) => val.toLocaleString('zh-CN'),
         },
       },
       series: [
         {
-          name: '预计销售金额',
+          name: '销售金额',
           type: 'bar',
           barMaxWidth: 28,
           data: estimated,
@@ -296,10 +370,19 @@ function handleReset() {
 }
 
 function handleExport() {
-  const header = ['时间', '报价数量', '预计销售金额', '实际销售金额'];
+  const header = ['时间', '报价数量', '销售金额', '成交几率加权%', '概率金额', '实际销售金额'];
   const lines = [
     header.join(','),
-    ...tableData.value.map((r) => [r.monthLabel, r.quoteCount, r.estimated.toFixed(2), r.actual.toFixed(2)].join(',')),
+    ...tableData.value.map((r) =>
+      [
+        r.monthLabel,
+        r.quoteCount,
+        r.estimated.toFixed(2),
+        r.winRateWeightedPct.toFixed(2),
+        r.probabilityAmount.toFixed(2),
+        r.actual.toFixed(2),
+      ].join(','),
+    ),
   ];
   const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);

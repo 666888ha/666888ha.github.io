@@ -76,6 +76,7 @@
         size="medium"
         bordered
         stripe
+        :loading="loadingData"
         :row-class-name="rowClassName"
       >
         <template #rank="{ row }">
@@ -123,8 +124,11 @@ import type { PrimaryTableCol, TableRowClassNameParams } from 'tdesign-vue-next'
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getRankingPerformanceCompletion } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { statisticsScope } from '../statisticsRequest';
 
 defineOptions({
   name: 'PerformanceCompletionRanking',
@@ -136,36 +140,6 @@ type RankTab = 'individual' | 'department';
 
 const BLUE = '#5eadf5';
 const GREEN = '#2ec7a6';
-
-const MOCK_TARGET_SUM = 1_000_000;
-const MOCK_DEAL_SUM = 12_000_000;
-const MOCK_RATE = '120%';
-const MOCK_SHARE_PCT = 50;
-
-const EMPLOYEE_NAMES = [
-  '李小刚',
-  '王小红',
-  '周小明',
-  '赵小军',
-  '孙小华',
-  '周小伟',
-  '吴小丽',
-  '郑小强',
-  '钱小敏',
-  '冯小涛',
-];
-
-/** 与示意图：李小刚 目标 170 万、成交 252 万 */
-const INDIVIDUAL_TARGET = [
-  1_700_000, 1_620_000, 1_520_000, 1_420_000, 1_320_000, 1_220_000, 1_120_000, 1_020_000, 920_000, 820_000,
-];
-const INDIVIDUAL_ACTUAL = [
-  2_520_000, 2_380_000, 2_200_000, 2_050_000, 1_880_000, 1_720_000, 1_580_000, 1_420_000, 1_280_000, 1_150_000,
-];
-
-const DEPT_LABELS = Array.from({ length: 10 }, (_, i) => `部门名称${i + 1}`);
-const DEPT_TARGET = INDIVIDUAL_TARGET.map((v) => Math.round(v * 1.05));
-const DEPT_ACTUAL = INDIVIDUAL_ACTUAL.map((v) => Math.round(v * 0.98));
 
 const metricOptions = [{ label: '成交金额', value: 'deal' }];
 
@@ -199,10 +173,14 @@ function formatMoney(n: number) {
   return `￥${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const summaryLine = computed(
-  () =>
-    `目标金额：${formatMoney(MOCK_TARGET_SUM)}，成交金额：${formatMoney(MOCK_DEAL_SUM)}，完成率：${MOCK_RATE}`,
-);
+const summaryStats = ref({ target: 0, deal: 0 });
+const loadingData = ref(false);
+
+const summaryLine = computed(() => {
+  const s = summaryStats.value;
+  const rate = s.target > 0 ? `${((s.deal / s.target) * 100).toFixed(2)}%` : '0%';
+  return `目标金额：${formatMoney(s.target)}，成交金额：${formatMoney(s.deal)}，完成率：${rate}`;
+});
 
 interface IndividualRow {
   rowKey: string;
@@ -227,35 +205,63 @@ interface DepartmentRow {
   shareLabel: string;
 }
 
-function buildIndividualRows(): IndividualRow[] {
-  return EMPLOYEE_NAMES.map((_, i) => ({
-    rowKey: `e-${i}`,
-    rank: i + 1,
-    name: '赵小刚',
-    dept: '销售一部',
-    deal: 1_000_000,
-    target: 1_200_000,
-    rate: MOCK_RATE,
-    sharePct: MOCK_SHARE_PCT,
-    shareLabel: `${MOCK_SHARE_PCT}%`,
-  }));
+const individualRows = ref<IndividualRow[]>([]);
+const departmentRows = ref<DepartmentRow[]>([]);
+
+function rankRequestParams() {
+  const p: Record<string, any> = {
+    ...statisticsScope(filters.value.deptId, filters.value.userId),
+    dimension: activeTab.value === 'individual' ? 'individual' : 'department',
+    year: filters.value.year,
+  };
+  const dr = filters.value.dateRange;
+  if (dr?.length === 2 && dr[0] && dr[1]) {
+    p.start_date = dayjs(dr[0]).format('YYYY-MM-DD');
+    p.end_date = dayjs(dr[1]).format('YYYY-MM-DD');
+  }
+  return p;
 }
 
-function buildDepartmentRows(): DepartmentRow[] {
-  return DEPT_LABELS.map((_, i) => ({
-    rowKey: `d-${i}`,
-    rank: i + 1,
-    name: '销售一部',
-    deal: 1_000_000,
-    target: 1_200_000,
-    rate: MOCK_RATE,
-    sharePct: MOCK_SHARE_PCT,
-    shareLabel: `${MOCK_SHARE_PCT}%`,
-  }));
+async function fetchRanking() {
+  loadingData.value = true;
+  try {
+    const res = await getRankingPerformanceCompletion(rankRequestParams());
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || '加载失败');
+      return;
+    }
+    const d = res.data as any;
+    const list = (d?.list || []) as any[];
+    const mapOne = (r: any, i: number) => ({
+      rowKey: String(r.row_key ?? `r-${i}`),
+      rank: Number(r.rank) || i + 1,
+      name: r.name ?? '',
+      deal: Number(r.deal) || 0,
+      target: Number(r.target) || 0,
+      rate: String(r.rate ?? '0%'),
+      sharePct: Number(r.share_pct) || 0,
+      shareLabel: String(r.share_label ?? '0%'),
+    });
+    if (activeTab.value === 'individual') {
+      individualRows.value = list.map((r, i) => ({ ...mapOne(r, i), dept: r.dept ?? '' }));
+    } else {
+      departmentRows.value = list.map((r, i) => mapOne(r, i));
+    }
+    const dealT = list.reduce((s, r) => s + (Number(r.deal) || 0), 0);
+    const tgtT = list.reduce((s, r) => s + (Number(r.target) || 0), 0);
+    summaryStats.value = { target: tgtT, deal: dealT };
+    const sum = d?.summary;
+    if (sum && typeof sum.deal_total === 'number') {
+      summaryStats.value.deal = Number(sum.deal_total) || dealT;
+    }
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
+  }
 }
-
-const individualRows = ref<IndividualRow[]>(buildIndividualRows());
-const departmentRows = ref<DepartmentRow[]>(buildDepartmentRows());
 
 const tableRows = computed(() =>
   activeTab.value === 'individual' ? individualRows.value : departmentRows.value,
@@ -289,17 +295,11 @@ function rowClassName({ rowIndex }: TableRowClassNameParams<unknown>) {
 }
 
 function chartCategoriesAndSeries() {
-  if (activeTab.value === 'individual') {
-    return {
-      categories: EMPLOYEE_NAMES,
-      target: [...INDIVIDUAL_TARGET],
-      actual: [...INDIVIDUAL_ACTUAL],
-    };
-  }
+  const rows = tableRows.value as (IndividualRow | DepartmentRow)[];
   return {
-    categories: DEPT_LABELS,
-    target: [...DEPT_TARGET],
-    actual: [...DEPT_ACTUAL],
+    categories: rows.map((r) => r.name),
+    target: rows.map((r) => r.target),
+    actual: rows.map((r) => r.deal),
   };
 }
 
@@ -338,8 +338,7 @@ function renderChart() {
       yAxis: {
         type: 'value',
         min: 0,
-        max: 3_000_000,
-        interval: 500_000,
+        scale: true,
         splitLine: { lineStyle: { type: 'dashed', color: '#e5e6eb' } },
         axisLabel: {
           fontSize: 11,
@@ -408,18 +407,12 @@ async function loadUserOptions() {
   }
 }
 
-function refreshRows() {
-  individualRows.value = buildIndividualRows();
-  departmentRows.value = buildDepartmentRows();
-}
-
 function handleTabChange() {
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleSearch() {
-  refreshRows();
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleReset() {
@@ -430,8 +423,7 @@ function handleReset() {
     deptId: undefined,
     userId: undefined,
   };
-  refreshRows();
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleSort() {
@@ -469,10 +461,9 @@ function handleExport() {
 watch(winWidth, () => chartInstance?.resize());
 
 onMounted(() => {
-  nextTick(() => renderChart());
-  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
-    nextTick(() => chartInstance?.resize());
-  });
+  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() =>
+    void fetchRanking().then(() => nextTick(() => chartInstance?.resize())),
+  );
 });
 
 onUnmounted(() => disposeChart());

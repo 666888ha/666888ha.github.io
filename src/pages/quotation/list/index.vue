@@ -45,9 +45,6 @@
         <!-- 操作按钮 -->
         <t-button theme="primary" @click="handleSearch">查询</t-button>
         <t-button theme="default" @click="handleReset">重置</t-button>
-        <t-button theme="default" text @click="handleAdvancedFilter">
-          <span style="color: #165dff">Y. 高级筛选</span>
-        </t-button>
       </div>
     </div>
     <!-- 操作按钮和表格控制 -->
@@ -65,16 +62,8 @@
         <t-tooltip content="当对列表客户写跟进时,会自动将刚刚写过跟进的客户排到最后。" :show-arrow="false">
           <t-icon name="help-circle" />
         </t-tooltip>
-        <t-tooltip content="排序">
-          <t-button theme="default" variant="outline" @click="clickOper(1)">
-            <template #icon>
-              <t-icon name="swap" />
-            </template>
-            排序
-          </t-button>
-        </t-tooltip>
         <t-tooltip content="列表">
-          <t-button theme="default" variant="outline" @click="clickOper(2)">
+          <t-button theme="default" variant="outline" @click="clickOper(1)">
             <template #icon>
               <t-icon name="view-list" />
             </template>
@@ -98,7 +87,7 @@
       >
         <!-- 报价单号 -->
         <template #quotation_no="{ row }">
-          <t-link theme="primary" @click="clickOper(3, row)">
+          <t-link theme="primary" @click="clickOper(2, row)">
             {{ row.quotation_no }}
           </t-link>
         </template>
@@ -107,7 +96,7 @@
         <template #customer_name="{ row }">
           <div class="customer-name-container">
             <t-tooltip :content="row.customer_name || ''" placement="top">
-              <t-link theme="primary" class="customer-name-link" @click="clickOper(4, row)">
+              <t-link theme="primary" class="customer-name-link" @click="clickOper(3, row)">
                 {{ row.customer_name }}
               </t-link>
             </t-tooltip>
@@ -137,19 +126,19 @@
         <template #operation="{ row }">
           <div class="operation-cell">
             <!-- 高频操作：转合同和编辑 -->
-            <t-link v-if="row.approval_status === 1" theme="primary" class="operation-link" @click="clickOper(5, row)">
+            <t-link v-if="row.approval_status === 1" theme="primary" class="operation-link" @click="clickOper(4, row)">
               转合同
             </t-link>
             <template v-if="row.approval_status === 1">
-              <t-link v-if="row.wordurl" theme="primary" class="operation-link" @click="clickOper(8, row)">
+              <t-link v-if="row.wordurl" theme="primary" class="operation-link" @click="clickOper(7, row)">
                 下载PDF
               </t-link>
-              <t-link v-else theme="primary" class="operation-link" @click="clickOper(8, row)"> 生成PDF </t-link>
+              <t-link v-else theme="primary" class="operation-link" @click="clickOper(7, row)"> 生成PDF </t-link>
             </template>
-            <t-link v-if="!row.approval_status" theme="primary" class="operation-link" @click="clickOper(6, row)">
+            <t-link v-if="!row.approval_status" theme="primary" class="operation-link" @click="clickOper(5, row)">
               编辑
             </t-link>
-            <t-link v-if="row.approval_status === 0" theme="primary" class="operation-link" @click="clickOper(7, row)">
+            <t-link v-if="row.approval_status === 0" theme="primary" class="operation-link" @click="clickOper(6, row)">
               删除
             </t-link>
           </div>
@@ -413,11 +402,6 @@ const handleReset = () => {
   loadTableData();
 };
 
-// 高级筛选
-const handleAdvancedFilter = () => {
-  MessagePlugin.info('高级筛选功能开发中');
-};
-
 // 新增报价：直接进入选产品（无跟进 id，与跟进审批后报价流程区分）
 const handleAddQuotation = () => {
   router.push({ path: '/quotation/chooseProduct', query: { folowId: '' } });
@@ -426,42 +410,39 @@ const handleAddQuotation = () => {
 // 操作
 const clickOper = async (type: number, row) => {
   switch (type) {
-    case 1: // 排序
-      MessagePlugin.info('排序功能开发中');
-      break;
-    case 2: // 列表
+    case 1: // 列表
       if (customColumnDialogRef.value) {
         customColumnDialogRef.value.show();
       }
       break;
-    case 3: // 报价单详情
+    case 2: // 报价单详情
       router.push({
         name: 'QuotationDetail',
         query: { quotationId: row.id },
       });
       break;
-    case 4: // 客户详情
+    case 3: // 客户详情
       router.push({
         path: '/customerMange/customer/detail',
         query: { id: row.customer_id },
       });
       break;
-    case 5: // 转合同
+    case 4: // 转合同
       router.push({
         path: '/contractMange/quationContract',
         query: { quotationId: row.id },
       });
       break;
-    case 6: // 编辑
+    case 5: // 编辑
       router.push({
         path: '/quotation/confirmQuotation',
         query: { quotationId: row.id },
       });
       break;
-    case 7: // 删除报价
+    case 6: // 删除报价
       handleDeleteQuotation(row);
       break;
-    case 8: // 生成pdf
+    case 7: // 生成pdf
       if (row.wordurl) {
         // 自动打开下载
         window.open(row.wordurl, '_blank');

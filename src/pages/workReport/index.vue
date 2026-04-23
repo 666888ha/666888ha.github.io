@@ -256,7 +256,7 @@ import { computed, defineAsyncComponent, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { getEmployeeList } from '@/api/customer/customer';
-import { deleteWorkReport, getWorkReportList, getWorkReportStat } from '@/api/workReport';
+import { deleteWorkReport, exportWorkReportList, getWorkReportList, getWorkReportStat } from '@/api/workReport';
 
 defineOptions({
   name: 'WorkReport',
@@ -419,32 +419,56 @@ const loadDepartmentOptions = async () => {
   }
 };
 
+function buildWorkReportListParams(withPaging: boolean): Record<string, any> {
+  const params: Record<string, any> = {};
+  if (withPaging) {
+    params.page = pagination.current;
+    params.limit = pagination.pageSize;
+  }
+  if (searchForm.keyword) {
+    params.keyword = searchForm.keyword;
+  }
+  if (searchForm.user_id) {
+    params.user_id = searchForm.user_id;
+  }
+  if (searchForm.approve_status !== '') {
+    params.approve_status = Number(searchForm.approve_status);
+  }
+  if (searchForm.department_id) {
+    params.department_id = searchForm.department_id;
+  }
+  if (searchForm.report_type !== '') {
+    params.report_type = Number(searchForm.report_type);
+  }
+  return params;
+}
+
+async function saveBlobAsDownload(blob: Blob, filename: string) {
+  if (blob.type && (blob.type.includes('application/json') || blob.type.includes('text/json'))) {
+    const text = await blob.text();
+    try {
+      const j = JSON.parse(text);
+      throw new Error((j as any)?.msg || (j as any)?.message || '导出失败');
+    } catch (e: any) {
+      if (e?.message === '导出失败' || e?.message?.includes('失败')) {
+        throw e;
+      }
+      throw new Error(text.slice(0, 200));
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // 加载表格数据
 const loadTableData = async () => {
   tableLoading.value = true;
   try {
-    const params: any = {
-      page: pagination.current,
-      limit: pagination.pageSize,
-    };
-
-    // 添加搜索条件
-    if (searchForm.keyword) {
-      params.keyword = searchForm.keyword;
-    }
-    if (searchForm.user_id) {
-      params.user_id = searchForm.user_id;
-    }
-    if (searchForm.approve_status !== '') {
-      params.approve_status = Number(searchForm.approve_status);
-    }
-    if (searchForm.department_id) {
-      params.department_id = searchForm.department_id;
-    }
-    if (searchForm.report_type !== '') {
-      params.report_type = Number(searchForm.report_type);
-    }
-
+    const params = buildWorkReportListParams(true);
     const res = await getWorkReportList(params);
     if (res.code === 0 || res.code === 200) {
       tableData.value = res.data?.list || [];
@@ -488,9 +512,23 @@ const handleAdd = () => {
   }
 };
 
-// 导出
-const handleExport = (data: any) => {
-  MessagePlugin.info(`导出功能待开发: ${data.value}`);
+// 导出（当前页带 ids；全部仅筛选，后端最多 5000 条）
+const handleExport = async (data: any) => {
+  const mode = data?.value || 'all';
+  tableLoading.value = true;
+  try {
+    const params = buildWorkReportListParams(false);
+    if (mode === 'current' && tableData.value.length > 0) {
+      params.ids = tableData.value.map((r: any) => r.id).filter(Boolean).join(',');
+    }
+    const blob = await exportWorkReportList(params);
+    await saveBlobAsDownload(blob, `工作报告列表_${Date.now()}.csv`);
+    MessagePlugin.success('导出已开始下载');
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '导出失败');
+  } finally {
+    tableLoading.value = false;
+  }
 };
 
 // 查看详情

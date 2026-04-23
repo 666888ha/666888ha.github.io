@@ -38,29 +38,25 @@
         <!-- 操作按钮 -->
         <t-button theme="primary" @click="handleSearch">查询</t-button>
         <t-button theme="default" @click="handleReset">重置</t-button>
-        <t-button theme="default" text @click="handleAdvancedFilter">
-          <span style="color: #165dff">Y. 高级筛选</span>
-        </t-button>
       </div>
     </div>
     <!-- 操作按钮和表格控制 -->
     <div class="operation-bar">
-      <div class="operation-left"></div>
+      <div class="operation-left">
+        <t-button theme="default" variant="outline" @click="triggerExportQuotationApprove">
+          <template #icon>
+            <t-icon name="download" />
+          </template>
+          导出
+        </t-button>
+      </div>
       <div class="operation-right">
         <t-checkbox>跟进模式</t-checkbox>
         <t-tooltip content="当对列表客户写跟进时,会自动将刚刚写过跟进的客户排到最后。" :show-arrow="false">
           <t-icon name="help-circle" />
         </t-tooltip>
-        <t-tooltip content="排序">
-          <t-button theme="default" variant="outline" @click="clickOper(1)">
-            <template #icon>
-              <t-icon name="swap" />
-            </template>
-            排序
-          </t-button>
-        </t-tooltip>
         <t-tooltip content="列表">
-          <t-button theme="default" variant="outline" @click="clickOper(2)">
+          <t-button theme="default" variant="outline" @click="clickOper(1)">
             <template #icon>
               <t-icon name="view-list" />
             </template>
@@ -84,7 +80,7 @@
       >
         <!-- 报价单号 -->
         <template #quotation_no="{ row }">
-          <t-link theme="primary" @click="clickOper(3, row)">
+          <t-link theme="primary" @click="clickOper(2, row)">
             {{ row.quotation_no }}
           </t-link>
         </template>
@@ -93,7 +89,7 @@
         <template #customer_name="{ row }">
           <div class="customer-name-container">
             <t-tooltip :content="row.customer_name || ''" placement="top">
-              <t-link theme="primary" class="customer-name-link" @click="clickOper(4, row)">
+              <t-link theme="primary" class="customer-name-link" @click="clickOper(3, row)">
                 {{ row.customer_name }}
               </t-link>
             </t-tooltip>
@@ -122,10 +118,10 @@
         <!-- 操作列 -->
         <template #operation="{ row }">
           <div class="operation-cell">
-            <t-link v-if="!row.approval_status" theme="primary" class="operation-link" @click="clickOper(5, row)">
+            <t-link v-if="!row.approval_status" theme="primary" class="operation-link" @click="clickOper(4, row)">
               审批
             </t-link>
-            <t-link theme="primary" class="operation-link" @click="clickOper(3, row)"> 详情 </t-link>
+            <t-link theme="primary" class="operation-link" @click="clickOper(2, row)"> 详情 </t-link>
           </div>
         </template>
       </t-table>
@@ -174,7 +170,7 @@ import { MessagePlugin } from 'tdesign-vue-next';
 import { defineAsyncComponent, h, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { postApprovalTodoList } from '@/api/approve/index';
+import { exportApprovalTodoList, postApprovalTodoList } from '@/api/approve/index';
 import { getApprovalStatusText } from '@/utils/ruoyi';
 
 defineOptions({
@@ -379,35 +375,27 @@ const handleReset = () => {
   loadTableData();
 };
 
-// 高级筛选
-const handleAdvancedFilter = () => {
-  MessagePlugin.info('高级筛选功能开发中');
-};
-
 // 操作
 const clickOper = async (type: number, row) => {
   switch (type) {
-    case 1: // 排序
-      MessagePlugin.info('排序功能开发中');
-      break;
-    case 2: // 列表
+    case 1: // 列表
       if (customColumnDialogRef.value) {
         customColumnDialogRef.value.show();
       }
       break;
-    case 3: // 报价单详情
+    case 2: // 报价单详情 / 操作列详情
       router.push({
         path: '/approveMange/quotationApprove/detail',
         query: { id: row.id },
       });
       break;
-    case 4: // 客户详情
+    case 3: // 客户详情
       router.push({
         path: '/customerMange/customer/detail',
         query: { id: row.customer_id },
       });
       break;
-    case 5: // 审批
+    case 4: // 审批
       router.push({
         path: '/approveMange/quotationApprove/approve',
         query: { id: row.id },
@@ -455,63 +443,95 @@ const handleColumnConfirm = (newColumns: any[]) => {
   // 更新表格列
   tableColumns.value = newColumns;
 };
+function formatYmd(date: string | Date) {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function buildQuotationApproveListParams(withPaging: boolean): Record<string, any> {
+  const params: Record<string, any> = {
+    approval_type: 'quotation',
+  };
+  if (withPaging) {
+    params.page = pagination.value.current;
+    params.limit = pagination.value.pageSize;
+  }
+  if (searchForm.value.keyword) {
+    params.keyword = searchForm.value.keyword.trim();
+  }
+  if (
+    searchForm.value.approvalStatus !== '' &&
+    searchForm.value.approvalStatus !== null &&
+    searchForm.value.approvalStatus !== undefined
+  ) {
+    params.approval_status = searchForm.value.approvalStatus;
+  }
+  if (
+    searchForm.value.winRate !== '' &&
+    searchForm.value.winRate !== null &&
+    searchForm.value.winRate !== undefined
+  ) {
+    params.win_rate = Number.parseInt(String(searchForm.value.winRate));
+  }
+  if (searchForm.value.customerId) {
+    params.customer_id = Number.parseInt(String(searchForm.value.customerId));
+  }
+  if (searchForm.value.dateRange && searchForm.value.dateRange.length === 2) {
+    const [startDate, endDate] = searchForm.value.dateRange;
+    if (startDate && endDate) {
+      params.start_date = formatYmd(startDate);
+      params.end_date = formatYmd(endDate);
+    }
+  }
+  return params;
+}
+
+async function saveBlobAsDownload(blob: Blob, filename: string) {
+  if (blob.type && (blob.type.includes('application/json') || blob.type.includes('text/json'))) {
+    const text = await blob.text();
+    try {
+      const j = JSON.parse(text);
+      throw new Error((j as any)?.msg || (j as any)?.message || '导出失败');
+    } catch (e: any) {
+      if (e?.message === '导出失败' || e?.message?.includes('失败')) {
+        throw e;
+      }
+      throw new Error(text.slice(0, 200));
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function triggerExportQuotationApprove() {
+  tableLoading.value = true;
+  try {
+    const params = buildQuotationApproveListParams(false);
+    if (selectedRowKeys.value.length > 0) {
+      params.ids = selectedRowKeys.value.join(',');
+    }
+    const blob = await exportApprovalTodoList(params);
+    await saveBlobAsDownload(blob, `报价审批列表_${Date.now()}.csv`);
+    MessagePlugin.success('导出已开始下载');
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '导出失败');
+  } finally {
+    tableLoading.value = false;
+  }
+}
+
 // 加载表格数据
 const loadTableData = async () => {
   tableLoading.value = true;
   try {
-    // 构建请求参数
-    const params: any = {
-      page: pagination.value.current,
-      limit: pagination.value.pageSize,
-      approval_type: 'quotation', // 报价审批
-    };
-
-    // 关键词（报价单号/客户名称）
-    if (searchForm.value.keyword) {
-      params.keyword = searchForm.value.keyword.trim();
-    }
-
-    // 审批状态
-    if (
-      searchForm.value.approvalStatus !== '' &&
-      searchForm.value.approvalStatus !== null &&
-      searchForm.value.approvalStatus !== undefined
-    ) {
-      params.approval_status = searchForm.value.approvalStatus;
-    }
-
-    // 成交几率
-    if (
-      searchForm.value.winRate !== '' &&
-      searchForm.value.winRate !== null &&
-      searchForm.value.winRate !== undefined
-    ) {
-      params.win_rate = Number.parseInt(String(searchForm.value.winRate));
-    }
-
-    // 客户ID
-    if (searchForm.value.customerId) {
-      params.customer_id = Number.parseInt(String(searchForm.value.customerId));
-    }
-
-    // 日期范围
-    if (searchForm.value.dateRange && searchForm.value.dateRange.length === 2) {
-      const [startDate, endDate] = searchForm.value.dateRange;
-      if (startDate && endDate) {
-        // 格式化日期为 Y-m-d 格式
-        const formatDateStr = (date: string | Date) => {
-          const d = typeof date === 'string' ? new Date(date) : date;
-          const year = d.getFullYear();
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const day = String(d.getDate()).padStart(2, '0');
-          return `${year}-${month}-${day}`;
-        };
-        params.start_date = formatDateStr(startDate);
-        params.end_date = formatDateStr(endDate);
-      }
-    }
-
-    // 调用接口
+    const params = buildQuotationApproveListParams(true);
     const response = await postApprovalTodoList(params);
 
     if (response.code === 0 || response.code === 200) {

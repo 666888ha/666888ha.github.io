@@ -75,6 +75,7 @@
         size="medium"
         bordered
         stripe
+        :loading="loadingData"
         :row-class-name="rowClassName"
       >
         <template #rank="{ row }">
@@ -117,8 +118,11 @@ import type { PrimaryTableCol, TableRowClassNameParams } from 'tdesign-vue-next'
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getRankingTransactionData } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { statisticsScope } from '../statisticsRequest';
 
 defineOptions({
   name: 'TransactionDataRanking',
@@ -129,30 +133,6 @@ echarts.use([TooltipComponent, GridComponent, BarChart, CanvasRenderer]);
 type RankTab = 'individual' | 'department';
 
 const BAR_COLOR = '#5eadf5';
-
-const MOCK_DEAL = 1_000_000;
-const MOCK_CONTRACTS = 200;
-const MOCK_PRODUCT_QTY = 10_000;
-const MOCK_AVG = 100_000;
-
-const EMPLOYEE_NAMES = [
-  '赵小刚',
-  '周小伟',
-  '王小明',
-  '李小红',
-  '孙小军',
-  '吴小丽',
-  '郑小强',
-  '钱小敏',
-  '冯小涛',
-];
-
-const INDIVIDUAL_VALUES = [
-  1_880_000, 1_720_000, 1_550_000, 1_420_000, 1_300_000, 1_180_000, 1_050_000, 920_000, 800_000,
-];
-
-const DEPT_LABELS = Array.from({ length: 10 }, (_, i) => `部门名称${i + 1}`);
-const DEPT_VALUES = INDIVIDUAL_VALUES.slice(0, 10).map((v, i) => Math.round(v * (1 - i * 0.03)));
 
 const currentYear = dayjs().year();
 const yearOptions = Array.from({ length: 12 }, (_, i) => {
@@ -187,10 +167,13 @@ function formatQty(n: number) {
   return n.toLocaleString('zh-CN');
 }
 
-const summaryLine = computed(
-  () =>
-    `成交金额: ${formatMoney(MOCK_DEAL)}, 成交合同: ${MOCK_CONTRACTS}, 成交产品数量: ${formatQty(MOCK_PRODUCT_QTY)}, 平均客单价: ${formatMoney(MOCK_AVG)}`,
-);
+const summaryStats = ref({ deal: 0, contracts: 0, qty: 0, avg: 0 });
+const loadingData = ref(false);
+
+const summaryLine = computed(() => {
+  const s = summaryStats.value;
+  return `成交金额: ${formatMoney(s.deal)}, 成交合同: ${s.contracts}, 成交产品数量: ${formatQty(s.qty)}, 平均客单价: ${formatMoney(s.avg)}`;
+});
 
 interface RowBase {
   rowKey: string;
@@ -210,33 +193,64 @@ interface DepartmentRow extends RowBase {
   name: string;
 }
 
-function buildIndividualRows(): IndividualRow[] {
-  return EMPLOYEE_NAMES.map((_, i) => ({
-    rowKey: `e-${i}`,
-    rank: i + 1,
-    name: '赵小刚',
-    dept: '销售一部',
-    deal: MOCK_DEAL,
-    contracts: MOCK_CONTRACTS,
-    productQty: MOCK_PRODUCT_QTY,
-    avgPrice: MOCK_AVG,
-  }));
+const individualRows = ref<IndividualRow[]>([]);
+const departmentRows = ref<DepartmentRow[]>([]);
+
+function rankRequestParams() {
+  const p: Record<string, any> = {
+    ...statisticsScope(filters.value.deptId, filters.value.userId),
+    dimension: activeTab.value === 'individual' ? 'individual' : 'department',
+    year: filters.value.year,
+  };
+  const dr = filters.value.dateRange;
+  if (dr?.length === 2 && dr[0] && dr[1]) {
+    p.start_date = dayjs(dr[0]).format('YYYY-MM-DD');
+    p.end_date = dayjs(dr[1]).format('YYYY-MM-DD');
+  }
+  return p;
 }
 
-function buildDepartmentRows(): DepartmentRow[] {
-  return DEPT_LABELS.map((name, i) => ({
-    rowKey: `d-${i}`,
-    rank: i + 1,
-    name,
-    deal: MOCK_DEAL,
-    contracts: MOCK_CONTRACTS,
-    productQty: MOCK_PRODUCT_QTY,
-    avgPrice: MOCK_AVG,
-  }));
+async function fetchRanking() {
+  loadingData.value = true;
+  try {
+    const res = await getRankingTransactionData(rankRequestParams());
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || '加载失败');
+      return;
+    }
+    const list = ((res.data as any)?.list || []) as any[];
+    const mapped = list.map((r, i) => ({
+      rowKey: String(r.row_key ?? `r-${i}`),
+      rank: Number(r.rank) || i + 1,
+      name: r.name ?? '',
+      dept: r.dept ?? '',
+      deal: Number(r.deal) || 0,
+      contracts: Number(r.contracts) || 0,
+      productQty: Number(r.product_qty) || 0,
+      avgPrice: Number(r.avg_price) || 0,
+    }));
+    if (activeTab.value === 'individual') {
+      individualRows.value = mapped as IndividualRow[];
+    } else {
+      departmentRows.value = mapped as DepartmentRow[];
+    }
+    const dealT = mapped.reduce((s, r) => s + r.deal, 0);
+    const cT = mapped.reduce((s, r) => s + r.contracts, 0);
+    const qT = mapped.reduce((s, r) => s + r.productQty, 0);
+    summaryStats.value = {
+      deal: dealT,
+      contracts: cT,
+      qty: qT,
+      avg: cT > 0 ? dealT / cT : 0,
+    };
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
+  }
 }
-
-const individualRows = ref<IndividualRow[]>(buildIndividualRows());
-const departmentRows = ref<DepartmentRow[]>(buildDepartmentRows());
 
 const tableRows = computed(() =>
   activeTab.value === 'individual' ? individualRows.value : departmentRows.value,
@@ -269,21 +283,15 @@ function rowClassName({ rowIndex }: TableRowClassNameParams<unknown>) {
   return '';
 }
 
-function tooltipExtra(name: string) {
-  if (name === '赵小刚') {
-    return '<br/>报价数量: 200, 客户数量: 200, 合同数量: 200';
-  }
-  return '';
-}
-
 function renderChart() {
   const el = chartRef.value;
   if (!el) return;
   if (!chartInstance) chartInstance = echarts.init(el);
 
   const isInd = activeTab.value === 'individual';
-  const categories = isInd ? EMPLOYEE_NAMES : DEPT_LABELS;
-  const data = isInd ? [...INDIVIDUAL_VALUES] : [...DEPT_VALUES];
+  const rows = tableRows.value as RowBase[];
+  const categories = rows.map((r) => (isInd ? (r as IndividualRow).name : (r as DepartmentRow).name));
+  const data = rows.map((r) => r.deal);
 
   chartInstance.setOption(
     {
@@ -294,8 +302,7 @@ function renderChart() {
           const list = params as { name: string; value: number }[];
           const p = list[0];
           if (!p) return '';
-          const head = `${p.name}<br/>成交金额: ${formatMoney(p.value)}`;
-          return head + tooltipExtra(p.name);
+          return `${p.name}<br/>成交金额: ${formatMoney(p.value)}`;
         },
       },
       legend: { show: false },
@@ -315,8 +322,7 @@ function renderChart() {
       yAxis: {
         type: 'value',
         min: 0,
-        max: 2_000_000,
-        interval: 400_000,
+        scale: true,
         splitLine: { lineStyle: { type: 'dashed', color: '#e5e6eb' } },
         axisLabel: {
           fontSize: 11,
@@ -378,18 +384,12 @@ async function loadUserOptions() {
   }
 }
 
-function refreshRows() {
-  individualRows.value = buildIndividualRows();
-  departmentRows.value = buildDepartmentRows();
-}
-
 function handleTabChange() {
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleSearch() {
-  refreshRows();
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleReset() {
@@ -399,8 +399,7 @@ function handleReset() {
     deptId: undefined,
     userId: undefined,
   };
-  refreshRows();
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleSort() {
@@ -438,10 +437,9 @@ function handleExport() {
 watch(winWidth, () => chartInstance?.resize());
 
 onMounted(() => {
-  nextTick(() => renderChart());
-  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
-    nextTick(() => chartInstance?.resize());
-  });
+  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() =>
+    void fetchRanking().then(() => nextTick(() => chartInstance?.resize())),
+  );
 });
 
 onUnmounted(() => disposeChart());

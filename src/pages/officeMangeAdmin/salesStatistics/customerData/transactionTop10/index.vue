@@ -33,7 +33,7 @@
             <t-icon name="user" class="user-suffix-icon" />
           </template>
         </t-select>
-        <t-button theme="primary" @click="handleSearch">
+        <t-button theme="primary" :loading="loadingData" @click="handleSearch">
           <template #icon><t-icon name="search" /></template>
           查询
         </t-button>
@@ -52,17 +52,21 @@
       <div class="summary-toolbar">
         <div class="summary-text">{{ summaryLine }}</div>
         <div class="toolbar-right">
-          <t-button theme="default" variant="outline" @click="handleSort">
-            <template #icon><t-icon name="order-descending" /></template>
-            排序
-          </t-button>
           <t-button theme="default" variant="outline" @click="handleExport">
             <template #icon><t-icon name="upload" /></template>
             导出
           </t-button>
         </div>
       </div>
-      <t-table :data="tableData" :columns="tableColumns" row-key="rowKey" size="medium" bordered stripe>
+      <t-table
+        :data="tableData"
+        :columns="tableColumns"
+        :loading="loadingData"
+        row-key="rowKey"
+        size="medium"
+        bordered
+        stripe
+      >
         <template #custName="{ row }">
           <t-link theme="primary" @click.prevent>{{ row.name }}</t-link>
         </template>
@@ -89,8 +93,11 @@ import type { PrimaryTableCol } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getCustomerTransactionTop10 } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { effectiveMonthRange, monthRangeParams, statisticsScope } from '../../statisticsRequest';
 
 defineOptions({
   name: 'CustomerTransactionTop10',
@@ -102,17 +109,6 @@ const statModeOptions = [{ label: '按月统计', value: 'month' }];
 
 const COLOR_DEAL = '#5eadf5';
 const COLOR_COLLECT = '#52c41a';
-
-const CUSTOMER_LABELS = Array.from({ length: 10 }, (_, i) => `客户名称${i + 1}`);
-
-/** 示意：客户名称1 成交 2520000、回款 1700000 */
-const CHART_DEAL = [2_520_000, 2_380_000, 2_240_000, 2_100_000, 1_960_000, 1_820_000, 1_680_000, 1_540_000, 1_400_000, 1_260_000];
-const CHART_COLLECT = [1_700_000, 1_580_000, 1_480_000, 1_360_000, 1_260_000, 1_140_000, 1_040_000, 940_000, 860_000, 780_000];
-
-const MOCK_SUMMARY_DEAL = 1_000_000;
-const MOCK_SUMMARY_COLLECT = 1_000_000;
-const MOCK_TABLE_DEAL = 1_000_000;
-const MOCK_TABLE_COLLECT = 1_000_000;
 
 function defaultMonthRange(): string[] {
   const y = dayjs().year();
@@ -130,6 +126,7 @@ const deptOptions = ref<{ label: string; value: string | number }[]>([]);
 const userOptions = ref<{ label: string; value: string | number }[]>([]);
 const loadingDept = ref(false);
 const loadingUser = ref(false);
+const loadingData = ref(false);
 
 const chartRef = ref<HTMLElement | null>(null);
 let chartInstance: echarts.ECharts | null = null;
@@ -140,39 +137,39 @@ function formatMoney(n: number) {
   return `¥ ${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const summaryLine = computed(
-  () =>
-    `成交总额: ${formatMoney(MOCK_SUMMARY_DEAL)}, 回款总额: ${formatMoney(MOCK_SUMMARY_COLLECT)}`,
-);
-
 interface TableRow {
   rowKey: string;
   rank: number;
   name: string;
   dealTotal: number;
   collectTotal: number;
+  contractCount: number;
 }
 
-const tableData = ref<TableRow[]>(buildTableRows());
+const tableData = ref<TableRow[]>([]);
 
-function buildTableRows(): TableRow[] {
-  return CUSTOMER_LABELS.map((label, i) => ({
-    rowKey: `t-${i}`,
-    rank: i + 1,
-    name: '客户名称',
-    dealTotal: MOCK_TABLE_DEAL,
-    collectTotal: MOCK_TABLE_COLLECT,
-  }));
-}
+const summaryLine = computed(() => {
+  const deal = tableData.value.reduce((s, r) => s + r.dealTotal, 0);
+  const col = tableData.value.reduce((s, r) => s + r.collectTotal, 0);
+  return `成交总额: ${formatMoney(deal)}, 回款总额: ${formatMoney(col)}`;
+});
 
 const tableColumns: PrimaryTableCol[] = [
   { colKey: 'rank', title: '排名', width: 72, align: 'center' },
   { colKey: 'name', title: '客户名称', minWidth: 140, cell: 'custName' },
   { colKey: 'dealTotal', title: '成交总额', align: 'right', cell: 'deal' },
   { colKey: 'collectTotal', title: '回款总额', align: 'right', cell: 'collect' },
+  { colKey: 'contractCount', title: '合同数', align: 'right', width: 88 },
 ];
 
 function chartOption(): EChartsCoreOption {
+  const labels = tableData.value.map((r) => r.name || '—');
+  const deals = tableData.value.map((r) => r.dealTotal);
+  const cols = tableData.value.map((r) => r.collectTotal);
+  const maxVal = Math.max(1, ...deals, ...cols);
+  const axisMax = Math.ceil(maxVal * 1.1);
+  const interval = Math.max(axisMax / 5, 1);
+
   return {
     color: [COLOR_DEAL, COLOR_COLLECT],
     tooltip: {
@@ -194,8 +191,8 @@ function chartOption(): EChartsCoreOption {
     xAxis: {
       type: 'value',
       min: 0,
-      max: 3_000_000,
-      interval: 600_000,
+      max: axisMax,
+      interval,
       splitLine: { lineStyle: { type: 'dashed', color: '#e5e6eb' } },
       axisLabel: {
         fontSize: 11,
@@ -204,7 +201,7 @@ function chartOption(): EChartsCoreOption {
     },
     yAxis: {
       type: 'category',
-      data: CUSTOMER_LABELS,
+      data: labels,
       inverse: true,
       axisTick: { show: false },
       axisLabel: { fontSize: 11 },
@@ -215,14 +212,14 @@ function chartOption(): EChartsCoreOption {
         type: 'bar',
         barMaxWidth: 14,
         itemStyle: { color: COLOR_DEAL, borderRadius: [0, 4, 4, 0] },
-        data: CHART_DEAL,
+        data: deals,
       },
       {
         name: '回款总额',
         type: 'bar',
         barMaxWidth: 14,
         itemStyle: { color: COLOR_COLLECT, borderRadius: [0, 4, 4, 0] },
-        data: CHART_COLLECT,
+        data: cols,
       },
     ],
   };
@@ -238,6 +235,36 @@ function renderChart() {
 function disposeChart() {
   chartInstance?.dispose();
   chartInstance = null;
+}
+
+async function fetchData() {
+  loadingData.value = true;
+  try {
+    const range = effectiveMonthRange(filters.value.monthRange, defaultMonthRange);
+    const res = await getCustomerTransactionTop10({
+      ...statisticsScope(filters.value.deptId, filters.value.userId),
+      ...monthRangeParams(range),
+    });
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error((res as any).msg || '加载失败');
+      return;
+    }
+    const list = (res as any).data?.list || [];
+    tableData.value = list.map((r: any, i: number) => ({
+      rowKey: String(r.row_key ?? `t-${i}`),
+      rank: i + 1,
+      name: r.customer_name ?? '',
+      dealTotal: Number(r.amount) || 0,
+      collectTotal: Number(r.collection_amount) || 0,
+      contractCount: Number(r.contract_count) || 0,
+    }));
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
+  }
 }
 
 async function loadDeptOptions() {
@@ -277,8 +304,7 @@ async function loadUserOptions() {
 }
 
 function handleSearch() {
-  tableData.value = buildTableRows();
-  nextTick(() => renderChart());
+  void fetchData();
 }
 
 function handleReset() {
@@ -291,16 +317,12 @@ function handleReset() {
   handleSearch();
 }
 
-function handleSort() {
-  MessagePlugin.info('已按默认顺序排序');
-}
-
 function handleExport() {
-  const header = ['排名', '客户名称', '成交总额', '回款总额'];
+  const header = ['排名', '客户名称', '成交总额', '回款总额', '合同数'];
   const lines = [
     header.join(','),
     ...tableData.value.map((row) =>
-      [row.rank, row.name, formatMoney(row.dealTotal), formatMoney(row.collectTotal)].join(','),
+      [row.rank, row.name, row.dealTotal, row.collectTotal, row.contractCount].join(','),
     ),
   ];
   const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8' });
@@ -316,9 +338,8 @@ function handleExport() {
 watch(winWidth, () => chartInstance?.resize());
 
 onMounted(() => {
-  nextTick(() => renderChart());
   void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
-    nextTick(() => chartInstance?.resize());
+    void fetchData();
   });
 });
 

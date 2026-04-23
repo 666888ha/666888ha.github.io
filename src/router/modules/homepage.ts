@@ -1045,29 +1045,90 @@ export default [
         children: [
           {
             path: 'salesForecast',
-            name: 'salesForecastAnalysis',
-            component: () => import('@/pages/officeMangeAdmin/salesStatistics/salesForecast/index.vue'),
+            name: 'salesForecastSection',
+            component: () => import('@/layouts/nestedRouterView.vue'),
+            redirect: { name: 'salesForecastAnalysis' },
             meta: {
               id: 77,
               parent_id: 76,
+              /** 浮层内不再单独显示「销售预测分析」分组条，与子项链接去重 */
+              hideFlyoutSubgroupTitle: true,
               title: {
                 zh_CN: '销售预测分析',
                 en_US: 'salesForecastAnalysis',
               },
             },
+            children: [
+              {
+                path: '',
+                name: 'salesForecastAnalysis',
+                component: () => import('@/pages/officeMangeAdmin/salesStatistics/salesForecast/index.vue'),
+                meta: {
+                  id: 101,
+                  parent_id: 77,
+                  title: {
+                    zh_CN: '销售预测分析',
+                    en_US: 'salesForecastAnalysis',
+                  },
+                },
+              },
+              {
+                path: 'report',
+                name: 'salesForecastReport',
+                component: () => import('@/pages/officeMangeAdmin/salesStatistics/salesForecast/report/index.vue'),
+                meta: {
+                  id: 102,
+                  parent_id: 77,
+                  title: {
+                    zh_CN: '销售预测报表',
+                    en_US: 'salesForecastReport',
+                  },
+                },
+              },
+            ],
           },
           {
             path: 'salesFunnel',
-            name: 'salesFunnelAnalysis',
-            component: () => import('@/pages/officeMangeAdmin/salesStatistics/salesFunnel/index.vue'),
+            name: 'salesFunnelSection',
+            component: () => import('@/layouts/nestedRouterView.vue'),
+            redirect: { name: 'salesFunnelAnalysis' },
             meta: {
               id: 78,
               parent_id: 76,
+              hideFlyoutSubgroupTitle: true,
               title: {
                 zh_CN: '销售漏斗分析',
                 en_US: 'salesFunnelAnalysis',
               },
             },
+            children: [
+              {
+                path: '',
+                name: 'salesFunnelAnalysis',
+                component: () => import('@/pages/officeMangeAdmin/salesStatistics/salesFunnel/index.vue'),
+                meta: {
+                  id: 103,
+                  parent_id: 78,
+                  title: {
+                    zh_CN: '销售漏斗分析',
+                    en_US: 'salesFunnelAnalysis',
+                  },
+                },
+              },
+              {
+                path: 'report',
+                name: 'salesFunnelReport',
+                component: () => import('@/pages/officeMangeAdmin/salesStatistics/salesFunnel/report/index.vue'),
+                meta: {
+                  id: 104,
+                  parent_id: 78,
+                  title: {
+                    zh_CN: '销售漏斗报表',
+                    en_US: 'salesFunnelReport',
+                  },
+                },
+              },
+            ],
           },
           {
             path: 'businessAdditionSummary',

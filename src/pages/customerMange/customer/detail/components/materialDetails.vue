@@ -11,12 +11,6 @@
             </template>
             编辑
           </t-button>
-          <t-button theme="primary" variant="outline" @click="handleExport">
-            <template #icon>
-              <t-icon name="upload" />
-            </template>
-            导出
-          </t-button>
         </div>
       </div>
       <base-desc label-width="150px">
@@ -186,11 +180,6 @@ const handleEdit = () => {
     path: '/customerMange/customer/edit',
     query: { id: router.currentRoute.value.query.id },
   });
-};
-
-// 导出
-const handleExport = () => {
-  MessagePlugin.success('导出功能开发中');
 };
 
 // 查看上级客户

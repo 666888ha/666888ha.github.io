@@ -97,10 +97,7 @@
         <!-- 操作 -->
         <template #operation="{ row }">
           <t-space>
-            <!-- <t-link theme="primary" @click="clickOperate(2, row)">查看</t-link> -->
-            <t-link theme="primary" @click="clickOperate(3, row)">撤销</t-link>
             <t-link v-if="row.record_type === 2" theme="primary" @click="clickOperate(4, row)">归还</t-link>
-            <t-link v-if="row.record_type === 2" theme="primary" @click="clickOperate(5, row)">续借</t-link>
           </t-space>
         </template>
 
@@ -365,19 +362,9 @@ const handlePageSizeChange = (pageSize: number) => {
 };
 const clickOperate = (type: number, row: any) => {
   switch (type) {
-    case 1:
-    case 2:
-      // MessagePlugin.info(`查看记录【${row.goods_name || ''}】详情功能开发中`);
-      break;
-    case 3:
-      MessagePlugin.info(`撤销物品【${row.goods_name || ''}】功能开发中`);
-      break;
     case 4:
       currentReturnRow.value = row;
       returnVisible.value = true;
-      break;
-    case 5:
-      MessagePlugin.info(`续借物品【${row.goods_name || ''}】功能开发中`);
       break;
     default:
       break;

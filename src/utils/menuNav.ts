@@ -80,3 +80,19 @@ export function flattenNavTree(items: NavListItem[]): FlatNavRow[] {
   }
   return out;
 }
+
+/** 悬停浮层用：可隐藏与父级重复的分组标题，只保留链接网格 */
+export function flattenNavTreeForFlyout(items: NavListItem[]): FlatNavRow[] {
+  const out: FlatNavRow[] = [];
+  for (const item of items) {
+    if (isNavGroup(item)) {
+      if (!item.meta?.hideFlyoutSubgroupTitle) {
+        out.push({ kind: 'group', title: item.title });
+      }
+      out.push(...flattenNavTreeForFlyout(item.children || []));
+    } else {
+      out.push({ kind: 'link', item });
+    }
+  }
+  return out;
+}

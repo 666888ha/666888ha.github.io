@@ -56,9 +56,6 @@
         <!-- 操作按钮 -->
         <t-button theme="primary" @click="handleSearch">查询</t-button>
         <t-button theme="default" @click="handleReset">重置</t-button>
-        <t-button theme="default" text @click="handleAdvancedFilter">
-          <span style="color: #165dff">Y. 高级筛选</span>
-        </t-button>
       </div>
     </div>
     <!-- 操作按钮和表格控制 -->
@@ -76,16 +73,8 @@
         <t-tooltip content="当对列表客户写跟进时,会自动将刚刚写过跟进的客户排到最后。" :show-arrow="false">
           <t-icon name="help-circle" />
         </t-tooltip>
-        <t-tooltip content="排序">
-          <t-button theme="default" variant="outline" @click="clickOper(4)">
-            <template #icon>
-              <t-icon name="swap" />
-            </template>
-            排序
-          </t-button>
-        </t-tooltip>
         <t-tooltip content="列表">
-          <t-button theme="default" variant="outline" @click="clickOper(6)">
+          <t-button theme="default" variant="outline" @click="clickOper(4)">
             <template #icon>
               <t-icon name="view-list" />
             </template>
@@ -391,11 +380,6 @@ const handleReset = () => {
   loadTableData();
 };
 
-// 高级筛选
-const handleAdvancedFilter = () => {
-  MessagePlugin.info('高级筛选功能开发中');
-};
-
 // 操作
 const clickOper = async (type: number, row) => {
   switch (type) {
@@ -404,19 +388,16 @@ const clickOper = async (type: number, row) => {
         path: '/followUpManagement/add',
       });
       break;
-    case 4: // 排序
-      MessagePlugin.info('排序功能开发中');
+    case 4: // 列表
+      if (customColumnDialogRef.value) {
+        customColumnDialogRef.value.show();
+      }
       break;
     case 5: // 编辑
       router.push({
         path: '/followUpManagement/edit',
         query: { id: row.id },
       });
-      break;
-    case 6: // 列表
-      if (customColumnDialogRef.value) {
-        customColumnDialogRef.value.show();
-      }
       break;
     case 7: {
       // 拨打

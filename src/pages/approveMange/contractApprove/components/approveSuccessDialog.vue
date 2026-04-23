@@ -99,16 +99,29 @@ const loadEmployeeOptions = async () => {
   }
 };
 
-// 显示弹框
-const show = (contractId: string | number) => {
+/** 将合同归属人员默认选为通知人员（需在员工列表已加载后调用） */
+function applyDefaultNotifyFromOwner(ownerUserId?: string | number | null) {
+  if (ownerUserId === undefined || ownerUserId === null || ownerUserId === '') {
+    return;
+  }
+  const sid = String(ownerUserId);
+  const match = employeeOptions.value.find((opt) => String(opt.value) === sid);
+  if (match) {
+    notifyUserIds.value = [match.value];
+  }
+}
+
+/**
+ * @param contractId 合同 id
+ * @param ownerUserId 合同归属人员 id（与详情接口 owner_user_id 一致）
+ */
+const show = async (contractId: string | number, ownerUserId?: string | number | null) => {
   currentContractId.value = contractId;
   approvalComment.value = '';
   notifyUserIds.value = [];
   dialogVisible.value = true;
-  // 如果员工列表未加载，则加载
-  if (employeeOptions.value.length === 0) {
-    loadEmployeeOptions();
-  }
+  await loadEmployeeOptions();
+  applyDefaultNotifyFromOwner(ownerUserId);
 };
 
 // 关闭弹框

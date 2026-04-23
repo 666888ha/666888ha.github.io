@@ -10,7 +10,7 @@
         <span class="unit-label">（万元）</span>
       </div>
       <div class="header-actions">
-        <t-radio-group v-model="timeRange" class="time-range-group" @change="handleTimeRangeChange">
+        <t-radio-group v-model="timeRange" class="time-range-group" :disabled="dashboardLoading" @change="handleTimeRangeChange">
           <t-radio-button value="week">本周</t-radio-button>
           <t-radio-button value="month">本月</t-radio-button>
           <t-radio-button value="quarter">近三个月</t-radio-button>
@@ -19,6 +19,7 @@
     </div>
 
     <!-- 数据卡片区域 -->
+    <t-loading :loading="dashboardLoading" size="small">
     <div class="workbench-cards">
       <!-- 当前累计业绩 -->
       <div class="workbench-card-wrapper">
@@ -32,7 +33,7 @@
             </div>
           </template>
           <div class="card-content">
-            <span class="card-value">¥ {{ formatNumber(data.currentPerformance) }}</span>
+            <span class="card-value">{{ formatNumber(data.currentPerformance) }}</span>
           </div>
         </t-card>
       </div>
@@ -49,7 +50,7 @@
             </div>
           </template>
           <div class="card-content">
-            <span class="card-value">¥ {{ formatNumber(data.balanceTarget) }}</span>
+            <span class="card-value">{{ formatNumber(data.balanceTarget) }}</span>
           </div>
         </t-card>
       </div>
@@ -66,7 +67,7 @@
             </div>
           </template>
           <div class="card-content">
-            <span class="card-value">¥ {{ formatNumber(data.minimumTarget) }}</span>
+            <span class="card-value">{{ formatNumber(data.minimumTarget) }}</span>
           </div>
         </t-card>
       </div>
@@ -105,16 +106,24 @@
         </t-card>
       </div>
     </div>
+    </t-loading>
 
     <!-- 销售员目标完成率表格 -->
     <div class="workbench-table-section">
       <div class="table-header">
         <div class="table-title">
-          <h2><img src="@/assets/home-icon2.png" alt="首页图标" class="header-icon" />2025年销售员保定目标完成率</h2>
+          <h2>
+            <img src="@/assets/home-icon2.png" alt="首页图标" class="header-icon" />{{ dashboardYear }}年销售员保底目标完成率
+          </h2>
           <span class="unit-label">（单位: 万元）</span>
         </div>
         <div class="table-actions">
-          <t-radio-group v-model="tableTimeRange" class="time-range-group" @change="handleTableTimeRangeChange">
+          <t-radio-group
+          v-model="tableTimeRange"
+          class="time-range-group"
+          :disabled="dashboardLoading"
+          @change="handleTableTimeRangeChange"
+        >
             <t-radio-button value="week">本周</t-radio-button>
             <t-radio-button value="month">本月</t-radio-button>
             <t-radio-button value="quarter">近三个月</t-radio-button>
@@ -156,11 +165,12 @@
         <!-- 左侧表格：年度部门新签合同统计 -->
         <t-col :span="8">
           <t-card :bordered="true" hover-shadow>
-            <div class="table-subtitle">2025年度新签合同统计</div>
+            <div class="table-subtitle">{{ dashboardYear }}年度新签合同统计</div>
             <t-table
               :data="departmentAnnualData"
               :columns="departmentAnnualColumns"
               :hover="true"
+              :loading="dashboardLoading"
               row-key="id"
               class="department-table"
             >
@@ -181,11 +191,12 @@
         <!-- 右侧表格：2025年11月部门业绩完成度 -->
         <t-col :span="4">
           <t-card :bordered="true" hover-shadow>
-            <div class="table-subtitle">2025年11月部门业绩完成度</div>
+            <div class="table-subtitle">{{ statsMonthYear }}年{{ statsMonth }}月部门业绩完成度</div>
             <t-table
               :data="departmentNovemberData"
               :columns="departmentNovemberColumns"
               :hover="true"
+              :loading="dashboardLoading"
               row-key="id"
               class="department-table"
             >
@@ -207,7 +218,9 @@
           <div class="table-header">
             <div class="table-header table-header--inline">
               <div class="table-title">
-                <h2><img src="@/assets/home-icon5.png" alt="首页图标" class="header-icon" />11月销售拜访榜</h2>
+                <h2>
+                  <img src="@/assets/home-icon5.png" alt="首页图标" class="header-icon" />{{ statsMonth }}月销售拜访榜
+                </h2>
               </div>
             </div>
             <div class="table-subtitle">拜访转化: 跟进拜访后产生报价的拜访</div>
@@ -217,11 +230,14 @@
               :data="visitRankingData"
               :columns="visitRankingColumns"
               :hover="true"
+              :loading="dashboardLoading"
               row-key="id"
               class="visit-ranking-table"
             >
-              <template #rank="{ rowIndex }">
-                <div class="rank-number" :class="[rowIndex < 3 ? 'rank-top' : '']">{{ rowIndex + 1 }}</div>
+              <template #rank="{ row, rowIndex }">
+                <div class="rank-number" :class="[(row.rank ?? rowIndex + 1) <= 3 ? 'rank-top' : '']">
+                  {{ row.rank ?? rowIndex + 1 }}
+                </div>
               </template>
               <template #totalVisits="{ row }"> {{ row.totalVisits || 0 }}次 </template>
               <template #newCustomerVisits="{ row }"> {{ row.newCustomerVisits || 0 }}家 </template>
@@ -244,11 +260,14 @@
               :data="projectRankingData"
               :columns="projectRankingColumns"
               :hover="true"
+              :loading="dashboardLoading"
               row-key="id"
               class="project-ranking-table"
             >
-              <template #rank="{ rowIndex }">
-                <div class="rank-number" :class="[rowIndex < 3 ? 'rank-top' : '']">{{ rowIndex + 1 }}</div>
+              <template #rank="{ row, rowIndex }">
+                <div class="rank-number" :class="[(row.rank ?? rowIndex + 1) <= 3 ? 'rank-top' : '']">
+                  {{ row.rank ?? rowIndex + 1 }}
+                </div>
               </template>
               <template #totalAmount="{ row }"> {{ formatNumber(row.totalAmount || 0) }}万 </template>
               <template #dealProbability="{ row }">
@@ -270,92 +289,163 @@
   </div>
 </template>
 <script setup lang="ts">
-import type { PrimaryTableCol } from 'tdesign-vue-next';
-import { ref } from 'vue';
+import { MessagePlugin, type PrimaryTableCol } from 'tdesign-vue-next';
+import { computed, onMounted, ref } from 'vue';
+
+import { getHomeDashboard } from '@/api/home';
 
 defineOptions({
   name: 'Workbench',
 });
 
-// 时间范围选择
-const timeRange = ref('quarter'); // 默认选中"近三个月"
-const tableTimeRange = ref('quarter'); // 表格时间范围
+const now = new Date();
+const timeRange = ref('quarter');
+const tableTimeRange = ref('quarter');
 const tableLoading = ref(false);
+const dashboardLoading = ref(false);
 
-// 数据源
+/** 销售员表、部门年度表用的自然年 */
+const dashboardYear = ref(now.getFullYear());
+/** 部门月完成度、拜访榜、报价榜用的年月（与接口 month_year / month 一致） */
+const statsMonthYear = ref(now.getFullYear());
+const statsMonth = ref(now.getMonth() + 1);
+
 const data = ref({
-  currentPerformance: 8450, // 当前累计业绩
-  balanceTarget: 12000, // 业绩平衡目标
-  minimumTarget: 10000, // 业绩保底目标
-  completionRate: 70.4, // 平衡目标完成率
-  remainingAmount: 3550, // 距平衡目标还差
+  currentPerformance: 0,
+  balanceTarget: 0,
+  minimumTarget: 0,
+  completionRate: 0,
+  remainingAmount: 0,
 });
 
-// 计算完成率
-const calculateCompletionRate = () => {
-  if (data.value.balanceTarget > 0) {
-    data.value.completionRate = Number(((data.value.currentPerformance / data.value.balanceTarget) * 100).toFixed(1));
-  }
-};
-
-// 计算剩余金额
-const calculateRemainingAmount = () => {
-  data.value.remainingAmount = Math.max(0, data.value.balanceTarget - data.value.currentPerformance);
-};
-
-// 格式化数字（添加千分位）
 const formatNumber = (num: number) => {
-  return num.toLocaleString('zh-CN');
+  return Number(num || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
 };
 
-// 时间范围改变处理
+function applyDashboardPayload(d: Record<string, any>) {
+  const kpi = d.kpi;
+  if (kpi) {
+    data.value = {
+      currentPerformance: Number(kpi.current_performance_wan) || 0,
+      balanceTarget: Number(kpi.balanced_target_wan) || 0,
+      minimumTarget: Number(kpi.guaranteed_target_wan) || 0,
+      completionRate: Number(kpi.balanced_completion_pct) || 0,
+      remainingAmount: Number(kpi.gap_to_balanced_wan) || 0,
+    };
+  }
+
+  const sg = d.salesperson_guaranteed;
+  if (sg?.year != null) {
+    dashboardYear.value = Number(sg.year);
+  }
+  if (Array.isArray(sg?.rows)) {
+    tableData.value = sg.rows.map((r: Record<string, any>) => ({
+      id: Number(r.employee_id) || 0,
+      salesperson: String(r.salesperson_name ?? ''),
+      newSignedAmount: Number(r.annual_new_signed_wan) || 0,
+      minimumTarget: Number(r.annual_guaranteed_target_wan) || 0,
+      completionRate: Number(r.guaranteed_completion_pct) || 0,
+      grossProfitMargin: Number(r.cumulative_gross_profit_margin_pct) || 0,
+    }));
+  }
+
+  const da = d.dept_annual_contracts;
+  if (da?.year != null) {
+    dashboardYear.value = Number(da.year);
+  }
+  if (Array.isArray(da?.rows)) {
+    departmentAnnualData.value = da.rows.map((r: Record<string, any>) => ({
+      id: Number(r.dept_id) || 0,
+      department: String(r.department_name ?? ''),
+      balanceTarget: Number(r.performance_balanced_target_wan) || 0,
+      minimumTarget: Number(r.performance_guaranteed_target_wan) || 0,
+      annualPerformance: Number(r.annual_new_signed_wan) || 0,
+      completionRate: Number(r.balanced_completion_pct) || 0,
+      profitMargin: Number(r.cumulative_gross_profit_margin_pct) || 0,
+    }));
+  }
+
+  const dm = d.dept_month_completion;
+  if (dm?.year != null) {
+    statsMonthYear.value = Number(dm.year);
+  }
+  if (dm?.month != null) {
+    statsMonth.value = Number(dm.month);
+  }
+  if (Array.isArray(dm?.rows)) {
+    departmentNovemberData.value = dm.rows.map((r: Record<string, any>) => ({
+      id: Number(r.dept_id) || 0,
+      department: String(r.department_name ?? ''),
+      novemberTarget: Number(r.monthly_balanced_target_wan) || 0,
+      completionRate: Number(r.monthly_completion_pct) || 0,
+    }));
+  }
+
+  const vr = d.sales_visit_ranking;
+  if (Array.isArray(vr?.rows)) {
+    visitRankingData.value = vr.rows.map((r: Record<string, any>) => ({
+      id: Number(r.employee_id) || 0,
+      rank: Number(r.rank) || 0,
+      salesperson: String(r.salesperson_name ?? ''),
+      totalVisits: Number(r.total_visits) || 0,
+      newCustomerVisits: Number(r.new_customer_visits) || 0,
+      dailyAverage: Number(r.daily_avg_visits) || 0,
+      conversionRate: Number(r.visit_conversion_pct) || 0,
+    }));
+  }
+
+  const fp = d.follow_project_ranking;
+  if (Array.isArray(fp?.rows)) {
+    projectRankingData.value = fp.rows.map((r: Record<string, any>) => ({
+      id: Number(r.quotation_id) || 0,
+      rank: Number(r.rank) || 0,
+      salesperson: String(r.salesperson_name ?? ''),
+      totalAmount: Number(r.follow_total_amount_wan) || 0,
+      dealProbability: Number(r.closing_probability_pct) || 0,
+      customer: String(r.customer_name ?? ''),
+      estimatedSigning: Number(r.estimated_sign_wan) || 0,
+    }));
+  }
+}
+
+async function fetchDashboard() {
+  dashboardLoading.value = true;
+  tableLoading.value = true;
+  try {
+    const res = await getHomeDashboard({
+      range: timeRange.value as 'week' | 'month' | 'quarter',
+      year: dashboardYear.value,
+      month_year: statsMonthYear.value,
+      month: statsMonth.value,
+    });
+    const code = (res as any)?.code;
+    if (code !== 0 && code !== 200) {
+      MessagePlugin.error((res as any)?.msg || '首页统计加载失败');
+      return;
+    }
+    const payload = (res as any)?.data;
+    if (payload && typeof payload === 'object') {
+      applyDashboardPayload(payload);
+    }
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '首页统计加载失败');
+  } finally {
+    dashboardLoading.value = false;
+    tableLoading.value = false;
+  }
+}
+
 const handleTimeRangeChange = (value: string) => {
   timeRange.value = value;
-  // 这里可以根据时间范围重新获取数据
-  // 目前使用模拟数据
-  loadDataByTimeRange(value);
+  tableTimeRange.value = value;
+  fetchDashboard();
 };
 
-// 根据时间范围加载数据（模拟）
-const loadDataByTimeRange = (range: string) => {
-  // 这里应该调用实际的API获取数据
-  // 目前使用模拟数据
-  switch (range) {
-    case 'week':
-      data.value = {
-        currentPerformance: 2100,
-        balanceTarget: 3000,
-        minimumTarget: 2500,
-        completionRate: 70.0,
-        remainingAmount: 900,
-      };
-      break;
-    case 'month':
-      data.value = {
-        currentPerformance: 5600,
-        balanceTarget: 8000,
-        minimumTarget: 7000,
-        completionRate: 70.0,
-        remainingAmount: 2400,
-      };
-      break;
-    case 'quarter':
-      data.value = {
-        currentPerformance: 8450,
-        balanceTarget: 12000,
-        minimumTarget: 10000,
-        completionRate: 70.4,
-        remainingAmount: 3550,
-      };
-      break;
-  }
-  calculateCompletionRate();
-  calculateRemainingAmount();
+const handleTableTimeRangeChange = (value: string) => {
+  tableTimeRange.value = value;
+  timeRange.value = value;
+  fetchDashboard();
 };
-
-// 初始化计算
-calculateCompletionRate();
-calculateRemainingAmount();
 
 // 表格列定义
 const tableColumns: PrimaryTableCol[] = [
@@ -401,201 +491,7 @@ interface SalespersonData {
   grossProfitMargin: number;
 }
 
-const tableData = ref<SalespersonData[]>([
-  {
-    id: 1,
-    salesperson: '彭硕',
-    newSignedAmount: 1500,
-    minimumTarget: 1200,
-    completionRate: 125,
-    grossProfitMargin: 28,
-  },
-  {
-    id: 2,
-    salesperson: '昌瑞辰',
-    newSignedAmount: 1200,
-    minimumTarget: 1000,
-    completionRate: 120,
-    grossProfitMargin: 32,
-  },
-  {
-    id: 3,
-    salesperson: '朱明远',
-    newSignedAmount: 950,
-    minimumTarget: 1000,
-    completionRate: 95,
-    grossProfitMargin: 32,
-  },
-  {
-    id: 4,
-    salesperson: '尤欣源',
-    newSignedAmount: 820,
-    minimumTarget: 800,
-    completionRate: 102.5,
-    grossProfitMargin: 30,
-  },
-  {
-    id: 5,
-    salesperson: '程甜',
-    newSignedAmount: 600,
-    minimumTarget: 800,
-    completionRate: 75,
-    grossProfitMargin: 38,
-  },
-]);
-
-// 表格时间范围改变处理
-const handleTableTimeRangeChange = (value: string) => {
-  tableTimeRange.value = value;
-  // 这里可以根据时间范围重新获取表格数据
-  // 目前使用模拟数据
-  loadTableDataByTimeRange(value);
-};
-
-// 根据时间范围加载表格数据（模拟）
-const loadTableDataByTimeRange = (range: string) => {
-  tableLoading.value = true;
-  // 模拟API调用
-  setTimeout(() => {
-    // 这里应该调用实际的API获取数据
-    // 目前使用模拟数据，可以根据range返回不同数据
-    switch (range) {
-      case 'week':
-        tableData.value = [
-          {
-            id: 1,
-            salesperson: '彭硕',
-            newSignedAmount: 350,
-            minimumTarget: 280,
-            completionRate: 125,
-            grossProfitMargin: 28,
-          },
-          {
-            id: 2,
-            salesperson: '昌瑞辰',
-            newSignedAmount: 280,
-            minimumTarget: 230,
-            completionRate: 121.7,
-            grossProfitMargin: 32,
-          },
-          {
-            id: 3,
-            salesperson: '朱明远',
-            newSignedAmount: 220,
-            minimumTarget: 230,
-            completionRate: 95.7,
-            grossProfitMargin: 32,
-          },
-          {
-            id: 4,
-            salesperson: '尤欣源',
-            newSignedAmount: 190,
-            minimumTarget: 185,
-            completionRate: 102.7,
-            grossProfitMargin: 30,
-          },
-          {
-            id: 5,
-            salesperson: '程甜',
-            newSignedAmount: 140,
-            minimumTarget: 185,
-            completionRate: 75.7,
-            grossProfitMargin: 38,
-          },
-        ];
-        break;
-      case 'month':
-        tableData.value = [
-          {
-            id: 1,
-            salesperson: '彭硕',
-            newSignedAmount: 900,
-            minimumTarget: 720,
-            completionRate: 125,
-            grossProfitMargin: 28,
-          },
-          {
-            id: 2,
-            salesperson: '昌瑞辰',
-            newSignedAmount: 720,
-            minimumTarget: 600,
-            completionRate: 120,
-            grossProfitMargin: 32,
-          },
-          {
-            id: 3,
-            salesperson: '朱明远',
-            newSignedAmount: 570,
-            minimumTarget: 600,
-            completionRate: 95,
-            grossProfitMargin: 32,
-          },
-          {
-            id: 4,
-            salesperson: '尤欣源',
-            newSignedAmount: 492,
-            minimumTarget: 480,
-            completionRate: 102.5,
-            grossProfitMargin: 30,
-          },
-          {
-            id: 5,
-            salesperson: '程甜',
-            newSignedAmount: 360,
-            minimumTarget: 480,
-            completionRate: 75,
-            grossProfitMargin: 38,
-          },
-        ];
-        break;
-      case 'quarter':
-        tableData.value = [
-          {
-            id: 1,
-            salesperson: '彭硕',
-            newSignedAmount: 1500,
-            minimumTarget: 1200,
-            completionRate: 125,
-            grossProfitMargin: 28,
-          },
-          {
-            id: 2,
-            salesperson: '昌瑞辰',
-            newSignedAmount: 1200,
-            minimumTarget: 1000,
-            completionRate: 120,
-            grossProfitMargin: 32,
-          },
-          {
-            id: 3,
-            salesperson: '朱明远',
-            newSignedAmount: 950,
-            minimumTarget: 1000,
-            completionRate: 95,
-            grossProfitMargin: 32,
-          },
-          {
-            id: 4,
-            salesperson: '尤欣源',
-            newSignedAmount: 820,
-            minimumTarget: 800,
-            completionRate: 102.5,
-            grossProfitMargin: 30,
-          },
-          {
-            id: 5,
-            salesperson: '程甜',
-            newSignedAmount: 600,
-            minimumTarget: 800,
-            completionRate: 75,
-            grossProfitMargin: 38,
-          },
-        ];
-        break;
-    }
-    tableLoading.value = false;
-  }, 300);
-};
+const tableData = ref<SalespersonData[]>([]);
 
 // 年度部门新签合同统计表格列定义
 const departmentAnnualColumns: PrimaryTableCol[] = [
@@ -637,77 +533,30 @@ const departmentAnnualColumns: PrimaryTableCol[] = [
   },
 ];
 
-// 年度部门新签合同统计数据
-const departmentAnnualData = ref([
-  {
-    id: 1,
-    department: '销售一部',
-    balanceTarget: 1500,
-    minimumTarget: 1200,
-    annualPerformance: 1500,
-    completionRate: 125,
-    profitMargin: 28,
-  },
-  {
-    id: 2,
-    department: '销售二部',
-    balanceTarget: 1200,
-    minimumTarget: 1000,
-    annualPerformance: 1140,
-    completionRate: 95,
-    profitMargin: 32,
-  },
-  {
-    id: 3,
-    department: '大客户部',
-    balanceTarget: 1000,
-    minimumTarget: 1000,
-    annualPerformance: 950,
-    completionRate: 95,
-    profitMargin: 32,
-  },
-]);
+const departmentAnnualData = ref<
+  Array<{
+    id: number;
+    department: string;
+    balanceTarget: number;
+    minimumTarget: number;
+    annualPerformance: number;
+    completionRate: number;
+    profitMargin: number;
+  }>
+>([]);
 
-// 2025年11月部门业绩完成度表格列定义
-const departmentNovemberColumns: PrimaryTableCol[] = [
-  {
-    title: '部门',
-    align: 'left',
-    colKey: 'department',
-  },
-  {
-    title: '11月平衡目标',
-    align: 'right',
-    colKey: 'novemberTarget',
-  },
-  {
-    title: '11月完成率',
-    align: 'right',
-    colKey: 'completionRate',
-  },
-];
+const departmentNovemberColumns = computed<PrimaryTableCol[]>(() => {
+  const m = statsMonth.value;
+  return [
+    { title: '部门', align: 'left', colKey: 'department' },
+    { title: `${m}月平衡目标`, align: 'right', colKey: 'novemberTarget' },
+    { title: `${m}月完成率`, align: 'right', colKey: 'completionRate' },
+  ];
+});
 
-// 2025年11月部门业绩完成度数据
-const departmentNovemberData = ref([
-  {
-    id: 1,
-    department: '销售一部',
-    novemberTarget: 450,
-    completionRate: 112,
-  },
-  {
-    id: 2,
-    department: '销售二部',
-    novemberTarget: 350,
-    completionRate: 88,
-  },
-  {
-    id: 3,
-    department: '大客户部',
-    novemberTarget: 200,
-    completionRate: 45,
-  },
-]);
+const departmentNovemberData = ref<
+  Array<{ id: number; department: string; novemberTarget: number; completionRate: number }>
+>([]);
 
 // 11月销售拜访榜表格列定义
 const visitRankingColumns: PrimaryTableCol[] = [
@@ -749,49 +598,17 @@ const visitRankingColumns: PrimaryTableCol[] = [
   },
 ];
 
-// 11月销售拜访榜数据
-const visitRankingData = ref([
-  {
-    id: 1,
-    salesperson: '彭硕',
-    totalVisits: 42,
-    newCustomerVisits: 15,
-    dailyAverage: 2.1,
-    conversionRate: 35,
-  },
-  {
-    id: 2,
-    salesperson: '昌瑞辰',
-    totalVisits: 38,
-    newCustomerVisits: 8,
-    dailyAverage: 1.9,
-    conversionRate: 15,
-  },
-  {
-    id: 3,
-    salesperson: '朱明远',
-    totalVisits: 25,
-    newCustomerVisits: 5,
-    dailyAverage: 1.2,
-    conversionRate: 60,
-  },
-  {
-    id: 4,
-    salesperson: '尤欣源',
-    totalVisits: 22,
-    newCustomerVisits: 2,
-    dailyAverage: 1.1,
-    conversionRate: 45,
-  },
-  {
-    id: 5,
-    salesperson: '程甜',
-    totalVisits: 18,
-    newCustomerVisits: 0,
-    dailyAverage: 0.9,
-    conversionRate: 20,
-  },
-]);
+const visitRankingData = ref<
+  Array<{
+    id: number;
+    rank: number;
+    salesperson: string;
+    totalVisits: number;
+    newCustomerVisits: number;
+    dailyAverage: number;
+    conversionRate: number;
+  }>
+>([]);
 
 // 跟进项目排名表格列定义
 const projectRankingColumns: PrimaryTableCol[] = [
@@ -834,49 +651,21 @@ const projectRankingColumns: PrimaryTableCol[] = [
   },
 ];
 
-// 跟进项目排名数据
-const projectRankingData = ref([
-  {
-    id: 1,
-    salesperson: '彭硕',
-    totalAmount: 850,
-    dealProbability: 80,
-    customer: '中建三局集团...',
-    estimatedSigning: 300,
-  },
-  {
-    id: 2,
-    salesperson: '昌瑞辰',
-    totalAmount: 620,
-    dealProbability: 80,
-    customer: '比亚迪二期项目...',
-    estimatedSigning: 150,
-  },
-  {
-    id: 3,
-    salesperson: '朱明远',
-    totalAmount: 580,
-    dealProbability: 80,
-    customer: '华润置地年度...',
-    estimatedSigning: 0,
-  },
-  {
-    id: 4,
-    salesperson: '尤欣源',
-    totalAmount: 410,
-    dealProbability: 80,
-    customer: '腾讯滨海大厦...',
-    estimatedSigning: 50,
-  },
-  {
-    id: 5,
-    salesperson: '程甜',
-    totalAmount: 220,
-    dealProbability: 80,
-    customer: '顺丰物流园区...',
-    estimatedSigning: 80,
-  },
-]);
+const projectRankingData = ref<
+  Array<{
+    id: number;
+    rank: number;
+    salesperson: string;
+    totalAmount: number;
+    dealProbability: number;
+    customer: string;
+    estimatedSigning: number;
+  }>
+>([]);
+
+onMounted(() => {
+  fetchDashboard();
+});
 </script>
 <style lang="less" scoped>
 .workbench-container {

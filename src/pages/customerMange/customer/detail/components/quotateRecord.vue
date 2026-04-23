@@ -3,14 +3,6 @@
     <!-- 顶部标题和操作按钮 -->
     <div class="quotation-header">
       <div class="header-title">报价记录</div>
-      <div class="header-actions">
-        <t-button theme="primary" @click="clickOper(1)">
-          <template #icon>
-            <t-icon name="download" />
-          </template>
-          导出
-        </t-button>
-      </div>
     </div>
 
     <!-- 数据表格 -->
@@ -238,9 +230,6 @@ const loadTableData = async () => {
 // 操作处理
 const clickOper = (type: number, row?: any) => {
   switch (type) {
-    case 1: // 导出
-      MessagePlugin.info('导出功能开发中');
-      break;
     case 2: // 转合同
       router.push({
         path: '/contractMange/quationContract',

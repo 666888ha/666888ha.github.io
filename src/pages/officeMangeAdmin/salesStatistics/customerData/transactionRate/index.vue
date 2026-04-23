@@ -24,7 +24,7 @@
             <t-icon name="user" class="user-suffix-icon" />
           </template>
         </t-select>
-        <t-button theme="primary" @click="handleSearch">
+        <t-button theme="primary" :loading="loadingData" @click="handleSearch">
           <template #icon><t-icon name="search" /></template>
           查询
         </t-button>
@@ -48,10 +48,14 @@ import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/compon
 import type { EChartsCoreOption } from 'echarts/core';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
+import { MessagePlugin } from 'tdesign-vue-next';
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getCustomerTransactionRate } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { statisticsScope } from '../../statisticsRequest';
 
 defineOptions({
   name: 'CustomerTransactionRateAnalysis',
@@ -64,11 +68,6 @@ const COLOR_RENEW = '#52c41a';
 const COLOR_CHURN = '#f5c542';
 
 const MONTH_LABELS = Array.from({ length: 12 }, (_, i) => `${i + 1}月`);
-
-/** 8 月示意：首次 35、续约 34、流失 35；年中起略抬升 */
-const SERIES_FIRST = [22, 24, 25, 26, 27, 28, 32, 35, 38, 36, 34, 30];
-const SERIES_RENEW = [20, 21, 22, 23, 24, 25, 30, 34, 36, 33, 31, 28];
-const SERIES_CHURN = [25, 25, 26, 26, 27, 28, 30, 35, 32, 30, 28, 27];
 
 const currentYear = dayjs().year();
 const yearOptions = Array.from({ length: 12 }, (_, i) => {
@@ -86,6 +85,11 @@ const deptOptions = ref<{ label: string; value: string | number }[]>([]);
 const userOptions = ref<{ label: string; value: string | number }[]>([]);
 const loadingDept = ref(false);
 const loadingUser = ref(false);
+const loadingData = ref(false);
+
+const seriesFirst = ref<number[]>(Array(12).fill(0));
+const seriesRenew = ref<number[]>(Array(12).fill(0));
+const seriesChurn = ref<number[]>(Array(12).fill(0));
 
 const chartRef = ref<HTMLElement | null>(null);
 let chartInstance: echarts.ECharts | null = null;
@@ -103,7 +107,7 @@ function chartOption(): EChartsCoreOption {
         if (!list?.length) return '';
         const lines = [`${list[0].axisValue}`];
         for (const p of list) {
-          lines.push(`${p.seriesName}: ${p.value}`);
+          lines.push(`${p.seriesName}: ${p.value}%`);
         }
         return lines.join('<br/>');
       },
@@ -129,47 +133,39 @@ function chartOption(): EChartsCoreOption {
     yAxis: {
       type: 'value',
       min: 0,
-      max: 140,
-      interval: 20,
       splitLine: { lineStyle: { type: 'dashed', color: '#e5e6eb' } },
-      axisLabel: { fontSize: 11 },
+      axisLabel: { fontSize: 11, formatter: '{value}%' },
     },
     series: [
       {
         name: '首次成交率%',
         type: 'line',
-        stack: 'rate',
         smooth: true,
         symbol: 'circle',
         symbolSize: 4,
         lineStyle: { width: 1.5 },
         itemStyle: { color: COLOR_FIRST },
-        areaStyle: { opacity: 0.45 },
-        data: [...SERIES_FIRST],
+        data: [...seriesFirst.value],
       },
       {
         name: '续约率%',
         type: 'line',
-        stack: 'rate',
         smooth: true,
         symbol: 'circle',
         symbolSize: 4,
         lineStyle: { width: 1.5 },
         itemStyle: { color: COLOR_RENEW },
-        areaStyle: { opacity: 0.45 },
-        data: [...SERIES_RENEW],
+        data: [...seriesRenew.value],
       },
       {
         name: '流失率%',
         type: 'line',
-        stack: 'rate',
         smooth: true,
         symbol: 'circle',
         symbolSize: 4,
         lineStyle: { width: 1.5 },
         itemStyle: { color: COLOR_CHURN },
-        areaStyle: { opacity: 0.45 },
-        data: [...SERIES_CHURN],
+        data: [...seriesChurn.value],
       },
     ],
   };
@@ -185,6 +181,41 @@ function renderChart() {
 function disposeChart() {
   chartInstance?.dispose();
   chartInstance = null;
+}
+
+async function fetchData() {
+  loadingData.value = true;
+  try {
+    const res = await getCustomerTransactionRate({
+      ...statisticsScope(filters.value.deptId, filters.value.userId),
+      year: filters.value.year,
+    });
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error((res as any).msg || '加载失败');
+      return;
+    }
+    const list = (res as any).data?.list || [];
+    const f = Array(12).fill(0);
+    const ren = Array(12).fill(0);
+    const ch = Array(12).fill(0);
+    for (const row of list) {
+      const m = Number(row.month);
+      if (m >= 1 && m <= 12) {
+        f[m - 1] = Number(row.first_rate) || 0;
+        ren[m - 1] = Number(row.renew_rate) || 0;
+        ch[m - 1] = Number(row.churn_rate) || 0;
+      }
+    }
+    seriesFirst.value = f;
+    seriesRenew.value = ren;
+    seriesChurn.value = ch;
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
+  }
 }
 
 async function loadDeptOptions() {
@@ -224,7 +255,7 @@ async function loadUserOptions() {
 }
 
 function handleSearch() {
-  nextTick(() => renderChart());
+  void fetchData();
 }
 
 function handleReset() {
@@ -239,9 +270,8 @@ function handleReset() {
 watch(winWidth, () => chartInstance?.resize());
 
 onMounted(() => {
-  nextTick(() => renderChart());
   void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
-    nextTick(() => chartInstance?.resize());
+    void fetchData();
   });
 });
 
@@ -288,6 +318,6 @@ onUnmounted(() => disposeChart());
 
 .chart-el {
   width: 100%;
-  height: 480px;
+  height: 420px;
 }
 </style>

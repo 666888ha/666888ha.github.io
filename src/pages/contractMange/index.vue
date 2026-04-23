@@ -88,16 +88,8 @@
         <t-tooltip content="帮助">
           <t-icon name="help-circle" style="cursor: pointer; margin-right: 8px" />
         </t-tooltip>
-        <t-tooltip content="排序">
-          <t-button theme="default" variant="outline" @click="clickOper(4)">
-            <template #icon>
-              <t-icon name="swap" />
-            </template>
-            排序
-          </t-button>
-        </t-tooltip>
         <t-tooltip content="列表">
-          <t-button theme="default" variant="outline" @click="clickOper(5)">
+          <t-button theme="default" variant="outline" @click="clickOper(4)">
             <template #icon>
               <t-icon name="view-list" />
             </template>
@@ -236,6 +228,39 @@
     </div>
   </div>
 
+  <!-- 导入合同（CSV） -->
+  <t-dialog
+    v-model:visible="importVisible"
+    header="导入合同（CSV）"
+    width="560px"
+    :confirm-btn="{ content: '开始导入', loading: importSubmitting }"
+    @confirm="handleImportConfirm"
+  >
+    <div class="import-dialog-body">
+      <p class="import-tip">
+        请使用 UTF-8 编码的 CSV。表头需与模板一致：每行一条合同（单产品 + 全款付款计划），合同金额须等于
+        数量×单价，单次约 3000 行。
+      </p>
+      <t-space>
+        <t-button
+          theme="primary"
+          variant="outline"
+          :loading="importTemplateLoading"
+          @click="handleDownloadContractImportTemplate"
+        >
+          下载导入模板
+        </t-button>
+      </t-space>
+      <t-upload
+        v-model:files="importFiles"
+        class="import-upload"
+        accept=".csv,.txt"
+        :max="1"
+        :auto-upload="false"
+      />
+    </div>
+  </t-dialog>
+
   <!-- 高级搜索弹框 -->
   <t-dialog v-model:visible="advancedSearchVisible" header="高级搜索" width="50%" :footer="null">
     <div class="advanced-search-container">
@@ -347,7 +372,15 @@ import { DialogPlugin, MessagePlugin } from 'tdesign-vue-next';
 import { defineAsyncComponent, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { contractAcceptance, deleteContract, generateContractWord, getContractList } from '@/api/contract';
+import {
+  contractAcceptance,
+  deleteContract,
+  downloadContractImportTemplate,
+  exportContractList,
+  generateContractWord,
+  getContractList,
+  importContractCsv,
+} from '@/api/contract';
 import { getApprovalStatusText } from '@/utils/ruoyi';
 
 defineOptions({
@@ -356,6 +389,11 @@ defineOptions({
 const CustomColumnDialog = defineAsyncComponent(() => import('@/components/BaseCustomColumn/index.vue'));
 const customColumnDialogRef = ref(null);
 const router = useRouter();
+
+const importVisible = ref(false);
+const importSubmitting = ref(false);
+const importTemplateLoading = ref(false);
+const importFiles = ref<any[]>([]);
 
 // 标签页
 const activeTab = ref('all');
@@ -674,15 +712,13 @@ const clickOper = async (type: number, row?: ContractData) => {
       });
       break;
     case 2: // 导入
-      MessagePlugin.info('导入功能开发中');
+      importFiles.value = [];
+      importVisible.value = true;
       break;
     case 3: // 导出
-      MessagePlugin.info('导出功能开发中');
+      triggerExportContracts();
       break;
-    case 4: // 排序
-      MessagePlugin.info('排序功能开发中');
-      break;
-    case 5: // 列表
+    case 4: // 列表
       if (customColumnDialogRef.value) {
         customColumnDialogRef.value.show();
       }
@@ -901,75 +937,131 @@ const handleColumnConfirm = (newColumns: any[]) => {
   // 更新表格列
   tableColumns.value = newColumns;
 };
+
+function formatSignDateParam(date: string | Date) {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** 与列表接口一致的查询参数（export 传 withPaging=false 并去掉 page/limit） */
+function buildContractListQueryParams(withPaging: boolean): Record<string, any> {
+  const params: Record<string, any> = {
+    type: activeTab.value,
+  };
+  if (withPaging) {
+    params.page = pagination.value.current;
+    params.limit = pagination.value.pageSize;
+  }
+  if (searchForm.value.keyword) {
+    params.keyword = searchForm.value.keyword.trim();
+  }
+  if (
+    searchForm.value.approvalStatus !== '' &&
+    searchForm.value.approvalStatus !== null &&
+    searchForm.value.approvalStatus !== undefined
+  ) {
+    params.approval_status = searchForm.value.approvalStatus;
+  }
+  if (searchForm.value.signDateRange && searchForm.value.signDateRange.length === 2) {
+    const [startDate, endDate] = searchForm.value.signDateRange;
+    if (startDate && endDate) {
+      params.start_date = formatSignDateParam(startDate);
+      params.end_date = formatSignDateParam(endDate);
+    }
+  }
+  return params;
+}
+
+/** 若后端返回 JSON 错误，Blob 需按文本解析 */
+async function saveBlobAsDownload(blob: Blob, filename: string) {
+  if (blob.type && (blob.type.includes('application/json') || blob.type.includes('text/json'))) {
+    const text = await blob.text();
+    try {
+      const j = JSON.parse(text);
+      throw new Error((j as any)?.msg || (j as any)?.message || '导出失败');
+    } catch (e: any) {
+      if (e?.message === '导出失败' || e?.message?.includes('失败')) {
+        throw e;
+      }
+      throw new Error(text.slice(0, 200));
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function handleDownloadContractImportTemplate() {
+  importTemplateLoading.value = true;
+  try {
+    const blob = await downloadContractImportTemplate();
+    await saveBlobAsDownload(blob, '合同导入模板.csv');
+    MessagePlugin.success('模板已下载');
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '模板下载失败');
+  } finally {
+    importTemplateLoading.value = false;
+  }
+}
+
+async function triggerExportContracts() {
+  tableLoading.value = true;
+  try {
+    const params = buildContractListQueryParams(false);
+    if (selectedRowKeys.value.length > 0) {
+      params.ids = selectedRowKeys.value.join(',');
+    }
+    const blob = await exportContractList(params as any);
+    await saveBlobAsDownload(blob, `合同列表导出_${Date.now()}.csv`);
+    MessagePlugin.success('导出已开始下载');
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '导出失败');
+  } finally {
+    tableLoading.value = false;
+  }
+}
+
+async function handleImportConfirm() {
+  const f = importFiles.value?.[0]?.raw as File | undefined;
+  if (!f) {
+    MessagePlugin.warning('请先选择 CSV 文件');
+    return Promise.reject(new Error('no file'));
+  }
+  importSubmitting.value = true;
+  try {
+    const res: any = await importContractCsv(f);
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || res.message || '导入失败');
+      return;
+    }
+    const d = res.data || {};
+    const fail = d.failed ?? 0;
+    MessagePlugin.success(`导入完成：新增 ${d.inserted ?? 0} 条${fail > 0 ? `，失败 ${fail} 条` : ''}`);
+    if (Array.isArray(d.errors) && d.errors.length > 0) {
+      console.warn('导入错误明细', d.errors);
+    }
+    importVisible.value = false;
+    importFiles.value = [];
+    await loadTableData();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '导入失败');
+    return Promise.reject(e);
+  } finally {
+    importSubmitting.value = false;
+  }
+}
+
 // 加载表格数据
 const loadTableData = async () => {
   tableLoading.value = true;
   try {
-    // 构建请求参数
-    const params: any = {
-      type: activeTab.value,
-      page: pagination.value.current,
-      limit: pagination.value.pageSize,
-    };
-
-    // 根据标签页设置 owner_user_id
-    if (activeTab.value === 'my') {
-      // 我的合同 - 需要获取当前用户ID，这里暂时不传，由后端处理
-      // params.owner_user_id = currentUserId;
-    } else if (activeTab.value === 'subordinate') {
-      // 下属合同 - 需要特殊处理
-      // params.subordinate = true;
-    } else if (activeTab.value === 'shared') {
-      // 共享合同 - 需要特殊处理
-      // params.shared = true;
-    }
-
-    // 关键词（合同编号/主题/客户名称）
-    if (searchForm.value.keyword) {
-      params.keyword = searchForm.value.keyword.trim();
-    }
-
-    // 审批状态
-    if (
-      searchForm.value.approvalStatus !== '' &&
-      searchForm.value.approvalStatus !== null &&
-      searchForm.value.approvalStatus !== undefined
-    ) {
-      params.approval_status = searchForm.value.approvalStatus;
-    }
-
-    // 执行状态（如果API支持）
-    if (
-      searchForm.value.executionStatus !== '' &&
-      searchForm.value.executionStatus !== null &&
-      searchForm.value.executionStatus !== undefined
-    ) {
-      // params.execution_status = searchForm.value.executionStatus;
-    }
-
-    // 付款方式（如果API支持）
-    if (searchForm.value.paymentMethod) {
-      // params.payment_method = searchForm.value.paymentMethod;
-    }
-
-    // 签单日期范围
-    if (searchForm.value.signDateRange && searchForm.value.signDateRange.length === 2) {
-      const [startDate, endDate] = searchForm.value.signDateRange;
-      if (startDate && endDate) {
-        // 格式化日期为 Y-m-d 格式
-        const formatDateStr = (date: string | Date) => {
-          const d = typeof date === 'string' ? new Date(date) : date;
-          const year = d.getFullYear();
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const day = String(d.getDate()).padStart(2, '0');
-          return `${year}-${month}-${day}`;
-        };
-        params.start_date = formatDateStr(startDate);
-        params.end_date = formatDateStr(endDate);
-      }
-    }
-
-    // 调用接口
+    const params = buildContractListQueryParams(true);
     const response = await getContractList(params);
 
     if (response.code === 0 || response.code === 200) {
@@ -1154,6 +1246,18 @@ onMounted(() => {
     gap: 10px;
     padding-top: 20px;
     border-top: 1px solid #f0f0f0;
+  }
+}
+
+.import-dialog-body {
+  .import-tip {
+    margin: 0 0 12px;
+    color: var(--td-text-color-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .import-upload {
+    margin-top: 16px;
   }
 }
 </style>

@@ -108,6 +108,56 @@ export const deleteSystemUser = (id: number | string) => {
   } as any);
 };
 
+/** 员工业绩目标：单月 */
+export interface EmployeeMonthlyTargetMonth {
+  month: number;
+  target_amount: string;
+}
+
+/** GET system/employee/monthly-target 返回 data */
+export interface EmployeeMonthlyTargetGetData {
+  employee_id: number;
+  real_name: string;
+  year: number;
+  months: EmployeeMonthlyTargetMonth[];
+  year_total: string;
+}
+
+/**
+ * 获取某员工指定年度 12 个月业绩目标
+ * GET /api/system/employee/monthly-target?employee_id=&year=
+ */
+export const getEmployeeMonthlyTarget = (params: { employee_id: number | string; year: number | string }) => {
+  return request.get<any>({
+    url: '/api/system/employee/monthly-target',
+    params,
+    requestOptions: {
+      isTransformResponse: false,
+      withToken: true,
+    },
+  } as any);
+};
+
+/**
+ * 保存某员工指定年度 12 个月业绩目标（后端要求超管 data_scope=all）
+ * POST /api/system/employee/monthly-target/save
+ */
+export const saveEmployeeMonthlyTarget = (data: {
+  employee_id: number | string;
+  year: number | string;
+  /** 长度 12，依次为 1～12 月目标金额 */
+  amounts: number[];
+}) => {
+  return request.post<any>({
+    url: '/api/system/employee/monthly-target/save',
+    data,
+    requestOptions: {
+      isTransformResponse: false,
+      withToken: true,
+    },
+  } as any);
+};
+
 /**
  * 获取当前用户信息
  * 接口：user/info

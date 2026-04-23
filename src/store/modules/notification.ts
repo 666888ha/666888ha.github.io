@@ -19,5 +19,6 @@ export const useNotificationStore = defineStore('notification', {
       this.msgData = data;
     },
   },
-  persist: true,
+  /** 消息改走接口 /api/message/*，不再持久化本地假数据 */
+  persist: false,
 });

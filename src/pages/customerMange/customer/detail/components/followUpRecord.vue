@@ -30,12 +30,6 @@
             <t-icon name="search" />
           </template>
         </t-input>
-        <t-button theme="primary" @click="handleExport">
-          <template #icon>
-            <t-icon name="download" />
-          </template>
-          导出
-        </t-button>
       </div>
     </div>
 
@@ -195,15 +189,6 @@ const handleDeleteComment = async (record: any) => {
   }
 };
 
-// 查看详情
-const handleViewDetail = (record: any) => {
-  if (followUpDetailRef.value) {
-    followUpDetailRef.value.show(record);
-  } else {
-    MessagePlugin.info('查看详情功能开发中');
-  }
-};
-
 // 删除记录
 const handleDeleteRecord = (record: any) => {
   const confirmDia = DialogPlugin.confirm({
@@ -234,11 +219,6 @@ const handleDeleteRecord = (record: any) => {
       confirmDia.hide();
     },
   });
-};
-
-// 导出
-const handleExport = () => {
-  MessagePlugin.success('导出功能开发中');
 };
 
 // 分页变化

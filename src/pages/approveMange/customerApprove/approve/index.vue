@@ -172,14 +172,17 @@ const firstApprover = computed(() => 'xxx');
 const secondApprover = computed(() => 'xxx');
 const finalApprover = computed(() => 'xxx');
 
-const handleApprove = () => {
+const handleApprove = async () => {
   const id = route.query.id;
   if (!id) {
     MessagePlugin.error('缺少客户ID，无法进行审批');
     return;
   }
+  const ownerId = followDetail.value.owner_user_id;
+  const defaultNotifyUserIds =
+    ownerId !== undefined && ownerId !== null && ownerId !== '' ? [ownerId] : [];
   if (approveSuccessDialogRef.value) {
-    approveSuccessDialogRef.value.show(id);
+    await approveSuccessDialogRef.value.show(id, { defaultNotifyUserIds });
   }
 };
 

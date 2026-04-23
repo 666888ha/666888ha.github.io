@@ -109,8 +109,11 @@ import type { PrimaryTableCol } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getBusinessAdditionSummary } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { monthRangeParams, statisticsScope } from '../statisticsRequest';
 
 defineOptions({
   name: 'BusinessAdditionSummary',
@@ -121,13 +124,14 @@ echarts.use([TooltipComponent, LegendComponent, GridComponent, LineChart, BarCha
 type SummaryTab = 'time' | 'creator' | 'owner';
 
 const SERIES_META = [
-  { key: 'clue', name: '线索', color: '#7eb8e8' },
-  { key: 'opportunity', name: '商机', color: '#2ec7a6' },
-  { key: 'customer', name: '客户', color: '#f5d547' },
-  { key: 'order', name: '订单', color: '#3d5a9a' },
+  { field: 'newCustomer', name: '新增客户', color: '#7eb8e8' },
+  { field: 'newFollow', name: '新增跟进', color: '#2ec7a6' },
+  { field: 'newQuote', name: '新增报价', color: '#f5d547' },
+  { field: 'newContract', name: '新增合同', color: '#3d5a9a' },
 ] as const;
 
-const MOCK_NUM = 200;
+const summaryTotals = ref({ newCustomer: 0, newFollow: 0, newQuote: 0, newContract: 0 });
+const loadingData = ref(false);
 
 const statModeOptions = [{ label: '按月统计', value: 'month' }];
 
@@ -157,69 +161,113 @@ const { width: winWidth } = useWindowSize();
 
 const summaryLine = computed(
   () =>
-    `新增客户：${MOCK_NUM}, 新增跟进：${MOCK_NUM}, 新增报价：${MOCK_NUM}, 新增合同：${MOCK_NUM}`,
+    `新增客户：${summaryTotals.value.newCustomer}, 新增跟进：${summaryTotals.value.newFollow}, 新增报价：${summaryTotals.value.newQuote}, 新增合同：${summaryTotals.value.newContract}`,
 );
 
-/** 折线图：12 个月 */
-function buildTimeChartData(year: number) {
-  const months = Array.from({ length: 12 }, (_, i) => `${year}年${i + 1}月`);
-  const wave = (seed: number) =>
-    months.map((_, i) => Math.round(80 + Math.sin((i + seed) * 0.45) * 70 + (i % 3) * 15));
-  return {
-    categories: months,
-    series: SERIES_META.map((m, idx) => ({
-      name: m.name,
-      type: 'line' as const,
-      smooth: true,
-      symbol: 'circle',
-      symbolSize: 6,
-      lineStyle: { width: 2 },
-      itemStyle: { color: m.color },
-      data: wave(idx + 1),
-    })),
-  };
+function labelMonth(time: string) {
+  const parts = time.split('-');
+  const y = parts[0];
+  const m = parts[1];
+  return `${y}年${Number(m)}月`;
 }
 
-const STAFF_NAMES = ['赵小刚', '李小红', '王小明', '刘芳', '陈强'];
-
-function buildBarChartData() {
-  return {
-    categories: STAFF_NAMES,
-    series: SERIES_META.map((m) => ({
-      name: m.name,
-      type: 'bar' as const,
-      barMaxWidth: 18,
-      itemStyle: { color: m.color },
-      data: STAFF_NAMES.map(() => MOCK_NUM),
-    })),
-  };
-}
-
-function buildTimeTable(year: number) {
-  return Array.from({ length: 12 }, (_, i) => ({
-    rowKey: `t-${i}`,
-    time: `${year}-${String(i + 1).padStart(2, '0')}`,
-    newCustomer: MOCK_NUM,
-    newFollow: MOCK_NUM,
-    newQuote: MOCK_NUM,
-    newContract: MOCK_NUM,
+function buildTimeChartFromRows() {
+  const rows = timeTableData.value;
+  const categories = rows.map((r) => labelMonth(r.time));
+  const series = SERIES_META.map((m) => ({
+    name: m.name,
+    type: 'line' as const,
+    smooth: true,
+    symbol: 'circle',
+    symbolSize: 6,
+    lineStyle: { width: 2 },
+    itemStyle: { color: m.color },
+    data: rows.map((r) => Number((r as any)[m.field]) || 0),
   }));
+  return { categories, series };
 }
 
-function buildStaffTable() {
-  return STAFF_NAMES.map((name, i) => ({
-    rowKey: `s-${i}`,
-    name,
-    dept: '销售一部',
-    newCustomer: MOCK_NUM,
-    newFollow: MOCK_NUM,
-    newQuote: MOCK_NUM,
-    newContract: MOCK_NUM,
+function buildBarFromStaff() {
+  const rows = staffTableData.value;
+  const categories = rows.map((r) => r.name);
+  const series = SERIES_META.map((m) => ({
+    name: m.name,
+    type: 'bar' as const,
+    barMaxWidth: 18,
+    itemStyle: { color: m.color },
+    data: rows.map((r) => Number((r as any)[m.field]) || 0),
   }));
+  return { categories, series };
 }
 
-const timeTableData = ref(buildTimeTable(dayjs().year()));
-const staffTableData = ref(buildStaffTable());
+const timeTableData = ref<
+  { rowKey: string; time: string; newCustomer: number; newFollow: number; newQuote: number; newContract: number }[]
+>([]);
+const staffTableData = ref<
+  { rowKey: string; name: string; dept: string; newCustomer: number; newFollow: number; newQuote: number; newContract: number }[]
+>([]);
+
+async function fetchBusinessAddition() {
+  loadingData.value = true;
+  try {
+    const range =
+      filters.value.monthRange?.length === 2 ? filters.value.monthRange : defaultMonthRange();
+    const res = await getBusinessAdditionSummary({
+      ...statisticsScope(filters.value.deptId, filters.value.userId),
+      ...monthRangeParams(range),
+      tab: activeTab.value,
+    });
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || '加载失败');
+      return;
+    }
+    const d = res.data || {};
+    if (activeTab.value === 'time') {
+      const list = d.list || [];
+      timeTableData.value = list.map((r: any, i: number) => ({
+        rowKey: String(r.row_key ?? `t-${i}`),
+        time: r.time,
+        newCustomer: Number(r.new_customer) || 0,
+        newFollow: Number(r.new_follow) || 0,
+        newQuote: Number(r.new_quote) || 0,
+        newContract: Number(r.new_contract) || 0,
+      }));
+      const s = d.summary || {};
+      summaryTotals.value = {
+        newCustomer: Number(s.new_customer) || 0,
+        newFollow: Number(s.new_follow) || 0,
+        newQuote: Number(s.new_quote) || 0,
+        newContract: Number(s.new_contract) || 0,
+      };
+    } else {
+      const list = d.list || [];
+      staffTableData.value = list.map((r: any, i: number) => ({
+        rowKey: String(r.row_key ?? `s-${i}`),
+        name: r.name,
+        dept: r.dept || '',
+        newCustomer: Number(r.new_customer) || 0,
+        newFollow: Number(r.new_follow) || 0,
+        newQuote: Number(r.new_quote) || 0,
+        newContract: Number(r.new_contract) || 0,
+      }));
+      summaryTotals.value = staffTableData.value.reduce(
+        (acc, r) => ({
+          newCustomer: acc.newCustomer + r.newCustomer,
+          newFollow: acc.newFollow + r.newFollow,
+          newQuote: acc.newQuote + r.newQuote,
+          newContract: acc.newContract + r.newContract,
+        }),
+        { newCustomer: 0, newFollow: 0, newQuote: 0, newContract: 0 },
+      );
+    }
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
+  }
+}
 
 const tableRows = computed(() => {
   if (activeTab.value === 'time') return timeTableData.value;
@@ -246,18 +294,11 @@ const tableColumns = computed<PrimaryTableCol[]>(() => {
   ];
 });
 
-function getChartYear() {
-  const r = filters.value.monthRange;
-  if (r?.length && r[0]) return dayjs(r[0], 'YYYY-MM').year();
-  return dayjs().year();
-}
-
 function renderChart() {
   const el = chartRef.value;
   if (!el) return;
   if (!chartInstance) chartInstance = echarts.init(el);
 
-  const year = getChartYear();
   const grid = {
     left: '3%',
     right: '4%',
@@ -267,7 +308,7 @@ function renderChart() {
   };
 
   if (activeTab.value === 'time') {
-    const { categories, series } = buildTimeChartData(year);
+    const { categories, series } = buildTimeChartFromRows();
     chartInstance.setOption(
       {
         tooltip: { trigger: 'axis' },
@@ -285,15 +326,14 @@ function renderChart() {
         yAxis: {
           type: 'value',
           min: 0,
-          max: 300,
-          splitNumber: 6,
+          scale: true,
         },
         series,
       },
       true,
     );
   } else {
-    const { categories, series } = buildBarChartData();
+    const { categories, series } = buildBarFromStaff();
     chartInstance.setOption(
       {
         tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
@@ -310,8 +350,7 @@ function renderChart() {
         yAxis: {
           type: 'value',
           min: 0,
-          max: 300,
-          splitNumber: 6,
+          scale: true,
         },
         series,
       },
@@ -362,14 +401,11 @@ async function loadUserOptions() {
 }
 
 function handleTabChange() {
-  nextTick(() => renderChart());
+  void fetchBusinessAddition();
 }
 
 function handleSearch() {
-  const y = getChartYear();
-  timeTableData.value = buildTimeTable(y);
-  staffTableData.value = buildStaffTable();
-  nextTick(() => renderChart());
+  void fetchBusinessAddition();
 }
 
 function handleReset() {
@@ -379,10 +415,7 @@ function handleReset() {
     deptId: undefined,
     userId: undefined,
   };
-  const y = dayjs().year();
-  timeTableData.value = buildTimeTable(y);
-  staffTableData.value = buildStaffTable();
-  nextTick(() => renderChart());
+  void fetchBusinessAddition();
 }
 
 function handleSort() {
@@ -415,9 +448,8 @@ watch(winWidth, () => {
 
 onMounted(() => {
   filters.value.monthRange = defaultMonthRange();
-  nextTick(() => renderChart());
   void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
-    nextTick(() => chartInstance?.resize());
+    void fetchBusinessAddition().then(() => nextTick(() => chartInstance?.resize()));
   });
 });
 

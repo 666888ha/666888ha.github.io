@@ -81,6 +81,7 @@
         size="medium"
         bordered
         stripe
+        :loading="loadingData"
         :row-class-name="rowClassName"
       >
         <template #rank="{ row }">
@@ -116,12 +117,15 @@ import { BarChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import type { PrimaryTableCol, RowClassNameParams } from 'tdesign-vue-next';
+import type { PrimaryTableCol, TableRowClassNameParams } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getRankingConversionRate } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+
+import { statisticsScope } from '../statisticsRequest';
 
 defineOptions({
   name: 'ConversionRateRanking',
@@ -134,36 +138,7 @@ type RankTab = 'individual' | 'department';
 const COLOR_LEADS = '#5eadf5';
 const COLOR_CONVERTED = '#52c41a';
 
-const MOCK_SUMMARY_NEW = 100;
-const MOCK_SUMMARY_CONVERTED = 200;
-const MOCK_SUMMARY_RATE = 100;
-
-const MOCK_TABLE_NEW = 200;
-const MOCK_TABLE_CONVERTED = 200;
-const MOCK_TABLE_RATE = 100;
-
 const metricOptions = [{ label: '转化率', value: 'conversion' }];
-
-const EMPLOYEE_NAMES = [
-  '赵小刚',
-  '李小红',
-  '王小明',
-  '周小伟',
-  '孙小军',
-  '吴小丽',
-  '郑小强',
-  '钱小敏',
-  '冯小涛',
-];
-
-/** 与示意一致：王小明 新增线索 233、已转客户 142 */
-const CHART_IND_LEADS = [265, 250, 233, 240, 228, 215, 200, 188, 175];
-const CHART_IND_CONV = [165, 155, 142, 148, 138, 128, 118, 108, 98];
-
-const DEPT_LABELS = Array.from({ length: 10 }, (_, i) => `部门名称${i + 1}`);
-/** 部门名称2：新增线索 252、已转客户 170 */
-const CHART_DEPT_LEADS = [275, 252, 235, 220, 205, 190, 175, 160, 145, 130];
-const CHART_DEPT_CONV = [185, 170, 155, 142, 130, 118, 105, 95, 85, 75];
 
 const currentYear = dayjs().year();
 const yearOptions = Array.from({ length: 12 }, (_, i) => {
@@ -191,10 +166,13 @@ let chartInstance: echarts.ECharts | null = null;
 
 const { width: winWidth } = useWindowSize();
 
-const summaryLine = computed(
-  () =>
-    `新增：${MOCK_SUMMARY_NEW}, 已转客户：${MOCK_SUMMARY_CONVERTED}, 转化率：${MOCK_SUMMARY_RATE}%`,
-);
+const summaryStats = ref({ newLeads: 0, converted: 0, rate: 0 });
+const loadingData = ref(false);
+
+const summaryLine = computed(() => {
+  const s = summaryStats.value;
+  return `新增：${s.newLeads}, 已转客户：${s.converted}, 转化率：${s.rate}%`;
+});
 
 function formatRateDisplay(rate: number) {
   return `${rate}%`;
@@ -219,31 +197,80 @@ interface DepartmentRow {
   conversionRate: number;
 }
 
-function buildIndividualRows(): IndividualRow[] {
-  return EMPLOYEE_NAMES.map((_, i) => ({
-    rowKey: `e-${i}`,
-    rank: i + 1,
-    name: '赵小刚',
-    dept: '销售一部',
-    newLeads: MOCK_TABLE_NEW,
-    convertedCustomers: MOCK_TABLE_CONVERTED,
-    conversionRate: MOCK_TABLE_RATE,
+const individualRows = ref<IndividualRow[]>([]);
+const departmentRows = ref<DepartmentRow[]>([]);
+
+function mapIndividualList(list: any[]): IndividualRow[] {
+  return list.map((r, i) => ({
+    rowKey: String(r.row_key ?? `r-${i}`),
+    rank: Number(r.rank) || i + 1,
+    name: r.name ?? '',
+    dept: r.dept ?? '',
+    newLeads: Number(r.new_leads) || 0,
+    convertedCustomers: Number(r.converted_customers) || 0,
+    conversionRate: Number(r.conversion_rate) || 0,
   }));
 }
 
-function buildDepartmentRows(): DepartmentRow[] {
-  return DEPT_LABELS.map((_, i) => ({
-    rowKey: `d-${i}`,
-    rank: i + 1,
-    name: '销售一部',
-    newLeads: MOCK_TABLE_NEW,
-    convertedCustomers: MOCK_TABLE_CONVERTED,
-    conversionRate: MOCK_TABLE_RATE,
+function aggregateByDept(list: any[]): DepartmentRow[] {
+  const m = new Map<string, { name: string; newLeads: number; converted: number }>();
+  for (const r of list) {
+    const key = (r.dept as string)?.trim() || '未分配部门';
+    const cur = m.get(key) || { name: key, newLeads: 0, converted: 0 };
+    cur.newLeads += Number(r.new_leads) || 0;
+    cur.converted += Number(r.converted_customers) || 0;
+    m.set(key, cur);
+  }
+  let rows: DepartmentRow[] = [...m.values()].map((v, i) => ({
+    rowKey: `d-${i}-${v.name}`,
+    rank: 0,
+    name: v.name,
+    newLeads: v.newLeads,
+    convertedCustomers: v.converted,
+    conversionRate: v.newLeads > 0 ? Math.round((v.converted / v.newLeads) * 10000) / 100 : 0,
   }));
+  rows.sort((a, b) => b.conversionRate - a.conversionRate);
+  rows = rows.map((row, idx) => ({ ...row, rank: idx + 1 }));
+  return rows;
 }
 
-const individualRows = ref<IndividualRow[]>(buildIndividualRows());
-const departmentRows = ref<DepartmentRow[]>(buildDepartmentRows());
+function rankRequestParams() {
+  return {
+    ...statisticsScope(filters.value.deptId, filters.value.userId),
+    year: filters.value.year,
+  };
+}
+
+async function fetchRanking() {
+  loadingData.value = true;
+  try {
+    const res = await getRankingConversionRate(rankRequestParams());
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error(res.msg || '加载失败');
+      return;
+    }
+    const raw = ((res.data as any)?.list || []) as any[];
+    if (activeTab.value === 'individual') {
+      individualRows.value = mapIndividualList(raw);
+    } else {
+      departmentRows.value = aggregateByDept(raw);
+    }
+    const rows = tableRows.value as (IndividualRow | DepartmentRow)[];
+    const nl = rows.reduce((s, r) => s + r.newLeads, 0);
+    const cv = rows.reduce((s, r) => s + r.convertedCustomers, 0);
+    summaryStats.value = {
+      newLeads: nl,
+      converted: cv,
+      rate: nl > 0 ? Math.round((cv / nl) * 10000) / 100 : 0,
+    };
+    await nextTick();
+    renderChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
+  }
+}
 
 const tableRows = computed(() =>
   activeTab.value === 'individual' ? individualRows.value : departmentRows.value,
@@ -281,7 +308,7 @@ const tableColumns = computed<PrimaryTableCol[]>(() => {
   ];
 });
 
-function rowClassName({ rowIndex }: RowClassNameParams<unknown>) {
+function rowClassName({ rowIndex }: TableRowClassNameParams<unknown>) {
   if (activeTab.value === 'individual' && rowIndex === 0) return 'rank-top-row';
   return '';
 }
@@ -292,9 +319,10 @@ function renderChart() {
   if (!chartInstance) chartInstance = echarts.init(el);
 
   const isInd = activeTab.value === 'individual';
-  const categories = isInd ? EMPLOYEE_NAMES : DEPT_LABELS;
-  const leadsData = isInd ? [...CHART_IND_LEADS] : [...CHART_DEPT_LEADS];
-  const convData = isInd ? [...CHART_IND_CONV] : [...CHART_DEPT_CONV];
+  const rows = tableRows.value as (IndividualRow | DepartmentRow)[];
+  const categories = rows.map((r) => r.name);
+  const leadsData = rows.map((r) => r.newLeads);
+  const convData = rows.map((r) => r.convertedCustomers);
 
   chartInstance.setOption(
     {
@@ -304,7 +332,7 @@ function renderChart() {
         axisPointer: { type: 'shadow' },
       },
       legend: {
-        data: ['新增线索', '已转客户'],
+        data: ['新增', '已转客户'],
         top: 0,
         left: 'center',
       },
@@ -324,14 +352,13 @@ function renderChart() {
       yAxis: {
         type: 'value',
         min: 0,
-        max: 300,
-        interval: 50,
+        scale: true,
         splitLine: { lineStyle: { type: 'dashed', color: '#e5e6eb' } },
         axisLabel: { fontSize: 11 },
       },
       series: [
         {
-          name: '新增线索',
+          name: '新增',
           type: 'bar',
           barMaxWidth: 22,
           itemStyle: { color: COLOR_LEADS, borderRadius: [4, 4, 0, 0] },
@@ -391,18 +418,12 @@ async function loadUserOptions() {
   }
 }
 
-function refreshRows() {
-  individualRows.value = buildIndividualRows();
-  departmentRows.value = buildDepartmentRows();
-}
-
 function handleTabChange() {
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleSearch() {
-  refreshRows();
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleReset() {
@@ -413,8 +434,7 @@ function handleReset() {
     deptId: undefined,
     userId: undefined,
   };
-  refreshRows();
-  nextTick(() => renderChart());
+  void fetchRanking();
 }
 
 function handleSort() {
@@ -451,10 +471,9 @@ function handleExport() {
 watch(winWidth, () => chartInstance?.resize());
 
 onMounted(() => {
-  nextTick(() => renderChart());
-  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
-    nextTick(() => chartInstance?.resize());
-  });
+  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() =>
+    void fetchRanking().then(() => nextTick(() => chartInstance?.resize())),
+  );
 });
 
 onUnmounted(() => disposeChart());

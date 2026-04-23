@@ -19,6 +19,19 @@ export function getWorkReportList(params?: any) {
   } as any);
 }
 
+/** 工作报告列表导出 CSV（筛选与 list 一致；可传 ids） */
+export function exportWorkReportList(params?: Record<string, any>) {
+  return request.get<Blob>({
+    url: '/api/work-report/export',
+    params: params || {},
+    responseType: 'blob',
+    requestOptions: {
+      isTransformResponse: false,
+      withToken: true,
+    },
+  } as any);
+}
+
 /**
  * 提交工作报告
  * @param {any} data 工作报告数据

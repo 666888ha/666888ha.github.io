@@ -88,7 +88,6 @@
         <!-- 操作 -->
         <template #operation="{ row }">
           <t-space>
-            <t-link theme="primary" @click="clickOper(5, row)">查看</t-link>
             <t-link theme="primary" @click="clickOper(7, row)">借出</t-link>
           </t-space>
         </template>
@@ -294,18 +293,6 @@ const clickOper = (type: number, row?: any) => {
   switch (type) {
     case 1:
       router.push({ name: 'addItemMange' });
-      break;
-    case 2:
-      MessagePlugin.info('导出功能开发中');
-      break;
-    case 3:
-      MessagePlugin.info('排序功能开发中');
-      break;
-    case 4:
-      MessagePlugin.info('自定义列表功能开发中');
-      break;
-    case 5:
-      MessagePlugin.info(`查看物品【${row?.goods_name || ''}】详情功能开发中`);
       break;
     case 6:
       if (row?.id) {

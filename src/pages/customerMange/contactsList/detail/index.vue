@@ -36,17 +36,11 @@
       </t-button>
       <t-button theme="default" variant="outline" @click="clickOper(2)">
         <template #icon>
-          <t-icon name="chat" />
-        </template>
-        发送短信
-      </t-button>
-      <t-button theme="default" variant="outline" @click="clickOper(3)">
-        <template #icon>
           <t-icon name="edit" />
         </template>
         编辑联系人
       </t-button>
-      <t-button theme="default" variant="outline" @click="clickOper(4)">
+      <t-button theme="default" variant="outline" @click="clickOper(3)">
         <template #icon>
           <t-icon name="delete" />
         </template>
@@ -143,7 +137,7 @@
         </div>
         <div class="header-right-group">
           <t-checkbox v-model="onlyFollowUp">只看跟进</t-checkbox>
-          <t-button theme="primary" @click="clickOper(5)">
+          <t-button theme="primary" @click="clickOper(4)">
             <template #icon>
               <t-icon name="edit" />
             </template>
@@ -202,19 +196,16 @@ const clickOper = async (type: number) => {
         }
       }
       break;
-    case 2: // 发送短信
-      MessagePlugin.info('发送短信功能开发中');
-      break;
-    case 3: // 编辑联系人
+    case 2: // 编辑联系人
       router.push({
         path: '/customerMange/contacts/edit',
         query: { id: contact_id },
       });
       break;
-    case 4: // 删除联系人
+    case 3: // 删除联系人
       handleDeleteCustomer();
       break;
-    case 5: // 写跟进
+    case 4: // 写跟进
       if (addFollowUpRef.value) {
         addFollowUpRef.value.show(contactInfo.value, 1);
       }

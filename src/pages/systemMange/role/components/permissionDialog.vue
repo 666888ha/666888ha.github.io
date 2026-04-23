@@ -11,10 +11,12 @@
       <div class="permission-tree">
         <t-tree
           v-model="checkedKeys"
+          value-mode="all"
           :data="menuTreeData"
           :keys="treeKeys"
           :check-props="checkProps"
           :checkable="true"
+          expand-all
           @change="handleTreeChange"
         />
       </div>
@@ -44,11 +46,9 @@ const loading = ref(false);
 // 选中的菜单ID
 const checkedKeys = ref<(string | number)[]>([]);
 
-// 树节点配置
+// 仅传 Checkbox 合法属性；勿把 checkedKeys/expandAll 塞进 checkProps，否则会与 v-model 冲突且 expandAll 不生效
 const checkProps = {
   checkAll: true,
-  checkedKeys,
-  expandAll: true,
 };
 
 // 树节点唯一标识
@@ -101,9 +101,10 @@ const handleSubmit = async () => {
   loading.value = true;
 
   try {
+    const menuIds = [...new Set(checkedKeys.value.map((x) => Number(x)).filter((n) => !Number.isNaN(n) && n > 0))];
     const response = await savePermission({
       role_id: roleId.value,
-      menu_ids: checkedKeys.value,
+      menu_ids: menuIds,
     });
 
     if (response.code === 0 || response.code === 200) {
@@ -146,7 +147,7 @@ const loadRolePermission = async (roleId: number | string) => {
     const response = await getRolePermission(roleId);
     if (response.code === 0 || response.code === 200) {
       const checkedMenuIds = response.checkedMenuIds || [];
-      checkedKeys.value = checkedMenuIds;
+      checkedKeys.value = checkedMenuIds.map((x: string | number) => Number(x)).filter((n) => !Number.isNaN(n));
     }
   } catch (error: any) {
     console.error('获取角色权限失败:', error);

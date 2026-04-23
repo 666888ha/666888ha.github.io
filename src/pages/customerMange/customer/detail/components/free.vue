@@ -12,12 +12,6 @@
         </t-button>
         <t-button theme="primary" variant="outline" @click="clickOper(2)">
           <template #icon>
-            <t-icon name="download" />
-          </template>
-          导出
-        </t-button>
-        <t-button theme="primary" variant="outline" @click="clickOper(3)">
-          <template #icon>
             <t-icon name="delete" />
           </template>
           删除
@@ -261,12 +255,7 @@ const loadTableData = async () => {
 // 操作处理
 const clickOper = (type: number, row?: any) => {
   switch (type) {
-    case 1: // 导出
-      if (selectedRowKeys.value.length === 0) {
-        MessagePlugin.warning('请先选择要导出的费用记录');
-        return;
-      }
-      MessagePlugin.info('导出功能开发中');
+    case 1: // 添加
       break;
     case 2: // 批量删除
       if (selectedRowKeys.value.length === 0) {

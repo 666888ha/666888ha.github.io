@@ -3,7 +3,7 @@
     <t-card :bordered="false" class="tabs-card">
       <t-tabs v-model="activeTab" class="dist-tabs" @change="handleTabChange">
         <t-tab-panel value="province" label="按省份分布" />
-        <t-tab-panel value="country" label="按国家分布" />
+        <t-tab-panel value="detail" label="按地区明细" />
       </t-tabs>
     </t-card>
 
@@ -40,7 +40,7 @@
             <t-icon name="user" class="user-suffix-icon" />
           </template>
         </t-select>
-        <t-button theme="primary" @click="handleSearch">
+        <t-button theme="primary" :loading="loadingData" @click="handleSearch">
           <template #icon><t-icon name="search" /></template>
           查询
         </t-button>
@@ -56,7 +56,7 @@
         v-if="mapLoadError && activeTab === 'province'"
         theme="warning"
         class="map-alert"
-        message="中国地图数据加载失败，请检查网络后重试"
+        message="中国地图数据加载失败，请刷新页面后重试"
       />
       <t-row :gutter="[16, 16]" class="main-row">
         <t-col :xs="12" :xl="14">
@@ -64,12 +64,13 @@
             <div v-if="!mapLoadError" ref="mapProvinceRef" class="map-box" />
             <div v-else class="map-fallback">地图暂不可用</div>
           </div>
-          <div v-show="activeTab === 'country'" ref="chartCountryRef" class="chart-country-box" />
+          <div v-show="activeTab === 'detail'" ref="chartDetailRef" class="chart-country-box" />
         </t-col>
         <t-col :xs="12" :xl="10">
           <t-table
             :data="tableData"
             :columns="tableColumns"
+            :loading="loadingData"
             row-key="rowKey"
             size="medium"
             bordered
@@ -94,11 +95,16 @@ import type { EChartsCoreOption } from 'echarts/core';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import type { PrimaryTableCol } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next';
 import dayjs from 'dayjs';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import { getCustomerRegionalDistribution } from '@/api/statistics';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getSystemDeptOptions } from '@/api/system/dept';
+import chinaGeoJson from '@/assets/geo/china-100000-full.json';
+
+import { effectiveMonthRange, monthRangeParams, statisticsScope } from '../../statisticsRequest';
 
 defineOptions({
   name: 'CustomerRegionalDistribution',
@@ -106,59 +112,9 @@ defineOptions({
 
 echarts.use([TooltipComponent, VisualMapComponent, GridComponent, MapChart, BarChart, CanvasRenderer]);
 
-const CHINA_GEO_URL = 'https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json';
-
-type DistTab = 'province' | 'country';
+type DistTab = 'province' | 'detail';
 
 const statModeOptions = [{ label: '按月统计', value: 'month' }];
-
-const MOCK = {
-  newCustomers: 1000,
-  newRatio: 10,
-};
-
-/**
- * 省份维度：表格「新增客户」与地图填色共用同一数值。
- * 新增越多颜色越深（visualMap：低值浅色 → 高值深色）。
- */
-const PROVINCE_STATS: { displayName: string; mapName: string; newCustomers: number }[] = [
-  { displayName: '北京', mapName: '北京市', newCustomers: 3200 },
-  { displayName: '广东省深圳市', mapName: '广东省', newCustomers: 2980 },
-  { displayName: '上海', mapName: '上海市', newCustomers: 2760 },
-  { displayName: '浙江', mapName: '浙江省', newCustomers: 2540 },
-  { displayName: '江苏', mapName: '江苏省', newCustomers: 2320 },
-  { displayName: '山东', mapName: '山东省', newCustomers: 2100 },
-  { displayName: '湖北', mapName: '湖北省', newCustomers: 1880 },
-  { displayName: '福建', mapName: '福建省', newCustomers: 1660 },
-  { displayName: '四川', mapName: '四川省', newCustomers: 1440 },
-  { displayName: '天津', mapName: '天津市', newCustomers: 1220 },
-  { displayName: '河南', mapName: '河南省', newCustomers: 1000 },
-  { displayName: '陕西', mapName: '陕西省', newCustomers: 880 },
-  { displayName: '湖南', mapName: '湖南省', newCustomers: 760 },
-  { displayName: '重庆', mapName: '重庆市', newCustomers: 640 },
-  { displayName: '辽宁', mapName: '辽宁省', newCustomers: 520 },
-];
-
-const provinceNewCustomerTotal = PROVINCE_STATS.reduce((s, r) => s + r.newCustomers, 0);
-
-function provinceMapSeriesData() {
-  return PROVINCE_STATS.map((r) => ({ name: r.mapName, value: r.newCustomers }));
-}
-
-const COUNTRY_NAMES = [
-  '美国',
-  '日本',
-  '德国',
-  '英国',
-  '韩国',
-  '澳大利亚',
-  '新加坡',
-  '马来西亚',
-  '泰国',
-  '越南',
-];
-
-const COUNTRY_BAR = [2680, 2350, 2080, 1820, 1650, 1480, 1250, 1080, 920, 780];
 
 function defaultMonthRange(): string[] {
   const y = dayjs().year();
@@ -178,61 +134,106 @@ const deptOptions = ref<{ label: string; value: string | number }[]>([]);
 const userOptions = ref<{ label: string; value: string | number }[]>([]);
 const loadingDept = ref(false);
 const loadingUser = ref(false);
+const loadingData = ref(false);
+
+interface Row {
+  rowKey: string;
+  rank: number;
+  name: string;
+  newCustomers: number;
+  newRatio: number;
+  followCount: number;
+  dealCount: number;
+}
+
+function normalizeApiRows(list: unknown): Row[] {
+  if (!Array.isArray(list)) return [];
+  return list.map((r: any, i: number) => ({
+    rowKey: String(r.row_key ?? `r-${i}`),
+    rank: i + 1,
+    name: r.name ?? '',
+    newCustomers: Number(r.new_customers) || 0,
+    newRatio: Number(r.new_ratio) || 0,
+    followCount: Number(r.follow_count) || 0,
+    dealCount: Number(r.deal_count) || 0,
+  }));
+}
+
+const rawRows = ref<Row[]>([]);
+
+function provinceFromRegionName(s: string): string {
+  const t = (s || '').trim();
+  if (!t) return '（未填写）';
+  const i = t.indexOf('/');
+  if (i < 0) return t;
+  const head = t.slice(0, i).trim();
+  return head || t;
+}
+
+const provinceRows = computed((): Row[] => {
+  const m = new Map<string, { newCustomers: number; followCount: number; dealCount: number }>();
+  for (const r of rawRows.value) {
+    const p = provinceFromRegionName(r.name);
+    const c = m.get(p) || { newCustomers: 0, followCount: 0, dealCount: 0 };
+    c.newCustomers += r.newCustomers;
+    c.followCount += r.followCount;
+    c.dealCount += r.dealCount;
+    m.set(p, c);
+  }
+  const total = rawRows.value.reduce((s, r) => s + r.newCustomers, 0);
+  const list: Row[] = [...m.entries()].map(([name, v], i) => ({
+    rowKey: `p-${i}-${name}`,
+    rank: 0,
+    name,
+    newCustomers: v.newCustomers,
+    newRatio: total > 0 ? Math.round((v.newCustomers / total) * 10000) / 100 : 0,
+    followCount: v.followCount,
+    dealCount: v.dealCount,
+  }));
+  list.sort((a, b) => b.newCustomers - a.newCustomers);
+  list.forEach((r, i) => {
+    r.rank = i + 1;
+  });
+  return list;
+});
+
+const detailRows = computed((): Row[] =>
+  rawRows.value.map((r, i) => ({
+    ...r,
+    rank: i + 1,
+  })),
+);
+
+const tableData = computed(() => (activeTab.value === 'province' ? provinceRows.value : detailRows.value));
+
+const tableColumns = computed<PrimaryTableCol[]>(() => {
+  const metrics: PrimaryTableCol[] = [
+    { colKey: 'newCustomers', title: '新增客户', align: 'right', width: 100 },
+    { colKey: 'newRatio', title: '新增占比', align: 'right', width: 96, cell: 'ratio' },
+    { colKey: 'followCount', title: '跟进次数', align: 'right', width: 100 },
+    { colKey: 'dealCount', title: '成交次数', align: 'right', width: 100 },
+  ];
+  const nameTitle = activeTab.value === 'province' ? '省份/一级地区' : '地区（完整）';
+  return [
+    { colKey: 'rank', title: '排名', width: 72, align: 'center' },
+    { colKey: 'name', title: nameTitle, minWidth: 140, ellipsis: true },
+    ...metrics,
+  ];
+});
 
 const mapLoadError = ref(false);
 const mapChinaRegistered = ref(false);
 
 const mapProvinceRef = ref<HTMLElement | null>(null);
-const chartCountryRef = ref<HTMLElement | null>(null);
+const chartDetailRef = ref<HTMLElement | null>(null);
 
 let chartProvince: echarts.ECharts | null = null;
-let chartCountry: echarts.ECharts | null = null;
+let chartDetail: echarts.ECharts | null = null;
 
 const { width: winWidth } = useWindowSize();
 
-const tableColumns = computed<PrimaryTableCol[]>(() => [
-  { colKey: 'rank', title: '排名', width: 72, align: 'center' },
-  {
-    colKey: 'name',
-    title: activeTab.value === 'province' ? '省份' : '国家',
-    minWidth: 140,
-    ellipsis: true,
-  },
-  { colKey: 'newCustomers', title: '新增客户', align: 'right', width: 100 },
-  { colKey: 'newRatio', title: '新增占比', align: 'right', width: 96, cell: 'ratio' },
-]);
-
-const provinceTableData = computed(() =>
-  PROVINCE_STATS.map((row, i) => {
-    const newRatio =
-      provinceNewCustomerTotal > 0
-        ? Math.round((1000 * row.newCustomers) / provinceNewCustomerTotal) / 10
-        : 0;
-    return {
-      rowKey: `p-${i}`,
-      rank: i + 1,
-      name: row.displayName,
-      newCustomers: row.newCustomers,
-      newRatio,
-    };
-  }),
-);
-
-const countryTableData = computed(() =>
-  COUNTRY_NAMES.map((name, i) => ({
-    rowKey: `c-${i}`,
-    rank: i + 1,
-    name,
-    ...MOCK,
-  })),
-);
-
-const tableData = computed(() =>
-  activeTab.value === 'province' ? provinceTableData.value : countryTableData.value,
-);
-
 function provinceMapOption(): EChartsCoreOption {
-  const mapData = provinceMapSeriesData();
+  const mapData = provinceRows.value.map((r) => ({ name: r.name, value: r.newCustomers }));
   const maxVal = Math.max(1, ...mapData.map((d) => d.value));
 
   return {
@@ -254,7 +255,6 @@ function provinceMapOption(): EChartsCoreOption {
       left: 24,
       bottom: 32,
       orient: 'vertical',
-      // 自上而下：数值高（新增多）→ 深色；数值低（新增少）→ 浅色
       text: ['高', '低'],
       calculable: false,
       inRange: {
@@ -283,7 +283,11 @@ function provinceMapOption(): EChartsCoreOption {
   };
 }
 
-function countryBarOption(): EChartsCoreOption {
+function detailBarOption(): EChartsCoreOption {
+  const rows = detailRows.value.slice(0, 20);
+  const categories = rows.map((r) => r.name);
+  const values = rows.map((r) => r.newCustomers);
+  const maxVal = Math.max(1, ...values);
   return {
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: {
@@ -295,19 +299,20 @@ function countryBarOption(): EChartsCoreOption {
     },
     xAxis: {
       type: 'value',
-      max: 3000,
+      min: 0,
+      max: Math.ceil(maxVal * 1.1),
       splitLine: { lineStyle: { type: 'dashed', color: '#e5e6eb' } },
     },
     yAxis: {
       type: 'category',
-      data: [...COUNTRY_NAMES].reverse(),
+      data: [...categories].reverse(),
       axisTick: { show: false },
-      axisLabel: { fontSize: 12 },
+      axisLabel: { fontSize: 11 },
     },
     series: [
       {
         type: 'bar',
-        data: [...COUNTRY_BAR].reverse(),
+        data: [...values].reverse(),
         barMaxWidth: 22,
         itemStyle: {
           color: '#5eadf3',
@@ -324,19 +329,16 @@ function renderProvinceMap() {
   chartProvince.setOption(provinceMapOption(), true);
 }
 
-function renderCountryChart() {
-  if (!chartCountryRef.value) return;
-  if (!chartCountry) chartCountry = echarts.init(chartCountryRef.value);
-  chartCountry.setOption(countryBarOption(), true);
+function renderDetailChart() {
+  if (!chartDetailRef.value) return;
+  if (!chartDetail) chartDetail = echarts.init(chartDetailRef.value);
+  chartDetail.setOption(detailBarOption(), true);
 }
 
-async function loadChinaMap() {
+function loadChinaMap() {
   mapLoadError.value = false;
   try {
-    const res = await fetch(CHINA_GEO_URL);
-    if (!res.ok) throw new Error(String(res.status));
-    const geoJson = await res.json();
-    echarts.registerMap('china', geoJson as never);
+    echarts.registerMap('china', chinaGeoJson as never);
     mapChinaRegistered.value = true;
     nextTick(() => renderProvinceMap());
   } catch (e) {
@@ -351,9 +353,9 @@ function disposeProvinceChart() {
   chartProvince = null;
 }
 
-function disposeCountryChart() {
-  chartCountry?.dispose();
-  chartCountry = null;
+function disposeDetailChart() {
+  chartDetail?.dispose();
+  chartDetail = null;
 }
 
 function handleTabChange() {
@@ -362,17 +364,39 @@ function handleTabChange() {
       renderProvinceMap();
       chartProvince?.resize();
     } else {
-      renderCountryChart();
-      chartCountry?.resize();
+      renderDetailChart();
+      chartDetail?.resize();
     }
   });
 }
 
-function handleSearch() {
-  nextTick(() => {
+async function fetchData() {
+  loadingData.value = true;
+  try {
+    const range = effectiveMonthRange(filters.value.monthRange, defaultMonthRange);
+    const res = await getCustomerRegionalDistribution({
+      ...statisticsScope(filters.value.deptId, filters.value.userId),
+      ...monthRangeParams(range),
+    });
+    if (res.code !== 0 && res.code !== 200) {
+      MessagePlugin.error((res as any).msg || '加载失败');
+      return;
+    }
+    const d = (res as any).data || {};
+    const list = d.list || d.chart || [];
+    rawRows.value = normalizeApiRows(list);
+    await nextTick();
     if (activeTab.value === 'province') renderProvinceMap();
-    else renderCountryChart();
-  });
+    else renderDetailChart();
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '网络错误');
+  } finally {
+    loadingData.value = false;
+  }
+}
+
+function handleSearch() {
+  void fetchData();
 }
 
 function handleReset() {
@@ -421,19 +445,29 @@ async function loadUserOptions() {
   }
 }
 
+watch(provinceRows, () => {
+  if (activeTab.value === 'province') nextTick(() => renderProvinceMap());
+});
+
+watch(detailRows, () => {
+  if (activeTab.value === 'detail') nextTick(() => renderDetailChart());
+});
+
 watch(winWidth, () => {
   chartProvince?.resize();
-  chartCountry?.resize();
+  chartDetail?.resize();
 });
 
 onMounted(() => {
-  void loadChinaMap();
-  void Promise.all([loadDeptOptions(), loadUserOptions()]);
+  loadChinaMap();
+  void Promise.all([loadDeptOptions(), loadUserOptions()]).then(() => {
+    void fetchData();
+  });
 });
 
 onUnmounted(() => {
   disposeProvinceChart();
-  disposeCountryChart();
+  disposeDetailChart();
 });
 </script>
 

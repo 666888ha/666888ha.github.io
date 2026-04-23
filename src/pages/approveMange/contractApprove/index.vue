@@ -74,16 +74,8 @@
         </t-button>
       </div>
       <div class="operation-right">
-        <t-tooltip content="排序">
-          <t-button theme="default" variant="outline" @click="clickOper(2)">
-            <template #icon>
-              <t-icon name="swap" />
-            </template>
-            排序
-          </t-button>
-        </t-tooltip>
         <t-tooltip content="列表">
-          <t-button theme="default" variant="outline" @click="clickOper(3)">
+          <t-button theme="default" variant="outline" @click="clickOper(2)">
             <template #icon>
               <t-icon name="view-list" />
             </template>
@@ -201,7 +193,7 @@ import { MessagePlugin } from 'tdesign-vue-next';
 import { defineAsyncComponent, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { postApprovalTodoList } from '@/api/approve/index';
+import { exportApprovalTodoList, postApprovalTodoList } from '@/api/approve/index';
 import { getEmployeeList } from '@/api/customer/customer';
 import { getApprovalStatusText } from '@/utils/ruoyi';
 
@@ -449,12 +441,9 @@ const handleReset = () => {
 const clickOper = async (type: number, row?: ContractApproveData) => {
   switch (type) {
     case 1: // 导出
-      MessagePlugin.info('导出功能开发中');
+      triggerExportContractApprove();
       break;
-    case 2: // 排序
-      MessagePlugin.info('排序功能开发中');
-      break;
-    case 3: // 列表
+    case 2: // 列表
       if (customColumnDialogRef.value) {
         customColumnDialogRef.value.show();
       }
@@ -525,35 +514,87 @@ const handleColumnConfirm = (newColumns: any[]) => {
   // 更新表格列
   tableColumns.value = newColumns;
 };
+function formatSubmitDay(v: string | Date | undefined | null): string {
+  if (!v) return '';
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    return v;
+  }
+  const d = typeof v === 'string' ? new Date(v) : v;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function buildContractApproveListParams(withPaging: boolean): Record<string, any> {
+  const params: Record<string, any> = {
+    approval_type: 'contract',
+  };
+  if (withPaging) {
+    params.page = pagination.value.current;
+    params.limit = pagination.value.pageSize;
+  }
+  if (searchForm.value.keyword) {
+    params.keyword = searchForm.value.keyword.trim();
+  }
+  if (searchForm.value.approval_status !== '' && searchForm.value.approval_status !== null) {
+    params.approval_status = searchForm.value.approval_status;
+  }
+  if (searchForm.value.submit_time) {
+    params.submit_time = formatSubmitDay(searchForm.value.submit_time as any);
+  }
+  if (searchForm.value.approval_time) {
+    params.approval_time = formatSubmitDay(searchForm.value.approval_time as any);
+  }
+  if (searchForm.value.create_user_id) {
+    params.create_user_id = searchForm.value.create_user_id;
+  }
+  return params;
+}
+
+async function saveBlobAsDownload(blob: Blob, filename: string) {
+  if (blob.type && (blob.type.includes('application/json') || blob.type.includes('text/json'))) {
+    const text = await blob.text();
+    try {
+      const j = JSON.parse(text);
+      throw new Error((j as any)?.msg || (j as any)?.message || '导出失败');
+    } catch (e: any) {
+      if (e?.message === '导出失败' || e?.message?.includes('失败')) {
+        throw e;
+      }
+      throw new Error(text.slice(0, 200));
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function triggerExportContractApprove() {
+  tableLoading.value = true;
+  try {
+    const params = buildContractApproveListParams(false);
+    if (selectedRowKeys.value.length > 0) {
+      params.ids = selectedRowKeys.value.join(',');
+    }
+    const blob = await exportApprovalTodoList(params);
+    await saveBlobAsDownload(blob, `合同审批列表_${Date.now()}.csv`);
+    MessagePlugin.success('导出已开始下载');
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || '导出失败');
+  } finally {
+    tableLoading.value = false;
+  }
+}
+
 // 加载表格数据
 const loadTableData = async () => {
   tableLoading.value = true;
   try {
-    // 构建请求参数
-    const params: any = {
-      page: pagination.value.current,
-      limit: pagination.value.pageSize,
-      approval_type: 'contract', // 审批类型：合同审批
-    };
-
-    // 添加搜索条件
-    if (searchForm.value.keyword) {
-      params.keyword = searchForm.value.keyword.trim();
-    }
-    if (searchForm.value.approval_status !== '' && searchForm.value.approval_status !== null) {
-      params.approval_status = searchForm.value.approval_status;
-    }
-    if (searchForm.value.submit_time) {
-      params.submit_time = searchForm.value.submit_time;
-    }
-    if (searchForm.value.approval_time) {
-      params.approval_time = searchForm.value.approval_time;
-    }
-    if (searchForm.value.create_user_id) {
-      params.create_user_id = searchForm.value.create_user_id;
-    }
-
-    // 调用接口（POST请求）
+    const params = buildContractApproveListParams(true);
     const response = await postApprovalTodoList(params);
 
     if (response.code === 0 || response.code === 200) {

@@ -345,6 +345,45 @@ export const getCustomerList = (params?: CustomerListParams) => {
     },
   } as any);
 };
+
+/** 客户列表导出（CSV，筛选条件与 list 一致；可传 ids 仅导出选中） */
+export const exportCustomerList = (params?: CustomerListParams & { ids?: string }) => {
+  return request.get<Blob>({
+    url: '/api/customer/export',
+    params: params || {},
+    responseType: 'blob',
+    requestOptions: {
+      isTransformResponse: false,
+      withToken: true,
+    },
+  } as any);
+};
+
+/** 客户导入模板 CSV */
+export const downloadCustomerImportTemplate = () => {
+  return request.get<Blob>({
+    url: '/api/customer/import-template',
+    responseType: 'blob',
+    requestOptions: {
+      isTransformResponse: false,
+      withToken: true,
+    },
+  } as any);
+};
+
+/** 客户 CSV 导入 */
+export const importCustomerCsv = (file: File) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return request.post<any>({
+    url: '/api/customer/import',
+    data: fd,
+    requestOptions: {
+      isTransformResponse: false,
+      withToken: true,
+    },
+  } as any);
+};
 /**
  * 获取垃圾客户列表
  * @param params 查询参数
@@ -612,9 +651,15 @@ export interface FollowUpParams {
   main_visitor: string;
   visitor_identity: string;
   follow_content: string;
+  follow_type?: string;
+  win_rate?: number;
   departure_time?: string;
   arrival_time?: string;
   leave_time?: string;
+  /** 打卡照片：后端存 URL 字符串 */
+  departure_photo?: string;
+  arrival_photo?: string;
+  leave_photo?: string;
 }
 export const addFollowUp = (data: FollowUpParams) => {
   return request.post<any>({
