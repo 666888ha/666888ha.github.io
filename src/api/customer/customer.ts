@@ -15,7 +15,7 @@ export interface AddCustomerParams {
   channel?: string; // 客户渠道
   owner_user_id?: number | string; // 归属人员
   region?: string; // 地区
-  address?: string; // 详细地址
+  address?: string; // 企业办公地址
   company_scale?: string; // 企业规模
   parent_customer_id?: number | string; // 上级客户
   remark?: string; // 备注
@@ -573,7 +573,7 @@ export interface AddContactParams {
   wechat?: string; // 微信账号
   fax?: string; // 传真号码
   contact_region?: string | (string | number)[]; // 所在地区
-  contact_address?: string; // 详细地址
+  contact_address?: string; // 家庭住址
   birthday?: string; // 生日
   contact_remark?: string; // 备注
 }

@@ -23,7 +23,13 @@
 
             <!-- 部门职务 -->
             <t-form-item label="部门职务" name="role">
-              <t-select v-model="contactFormData.role" placeholder="请选择" clearable :options="departmentOptions" />
+              <t-select
+                v-model="contactFormData.role"
+                placeholder="请选择"
+                clearable
+                :options="departmentOptions"
+                :loading="loadingDepartmentRole"
+              />
             </t-form-item>
 
             <!-- 固定电话 -->
@@ -41,8 +47,8 @@
               <t-input v-model="contactFormData.wechat" placeholder="请输入" clearable />
             </t-form-item>
 
-            <!-- 详细地址 -->
-            <t-form-item label="详细地址" name="contact_address">
+            <!-- 联系人家庭住址 -->
+            <t-form-item label="家庭住址" name="contact_address">
               <t-input v-model="contactFormData.contact_address" placeholder="请输入" clearable />
             </t-form-item>
           </t-col>
@@ -111,6 +117,7 @@ import type { FormInstanceFunctions, FormRules, SubmitContext } from 'tdesign-vu
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, ref, watch } from 'vue';
 
+import { useContactDeptRoleOptions } from '@/utils/contactDeptRoleDict';
 import { areaTree } from '@/utils/area';
 
 export interface Contact {
@@ -123,7 +130,7 @@ export interface Contact {
   role?: string; // 部门职务
   tel?: string; // 固定电话
   wechat?: string; // 微信账号
-  contact_address?: string; // 详细地址
+  contact_address?: string; // 家庭住址
   honorific?: string; // 尊称
   birthday?: string; // 生日
   mobile?: string; // 手机号码
@@ -181,15 +188,7 @@ const roleOptions = [
   { label: '其他', value: '其他' },
 ];
 
-// 部门职务选项
-const departmentOptions = [
-  { label: '总经理', value: '总经理' },
-  { label: '副总经理', value: '副总经理' },
-  { label: '部门经理', value: '部门经理' },
-  { label: '主管', value: '主管' },
-  { label: '员工', value: '员工' },
-  { label: '其他', value: '其他' },
-];
+const { departmentOptions, loadingDepartmentRole, loadContactDeptRoleOptions } = useContactDeptRoleOptions();
 
 // 联系人表单验证规则
 const contactFormRules: FormRules = {
@@ -257,12 +256,13 @@ watch(
   { immediate: true },
 );
 
-// 监听 visible 变化，重置表单
+// 打开弹窗时拉取部门职务字典；关闭时重置表单
 watch(
   () => props.visible,
-  (newVal) => {
-    if (!newVal) {
-      // 关闭时重置表单
+  async (newVal) => {
+    if (newVal) {
+      await loadContactDeptRoleOptions();
+    } else {
       contactFormRef.value?.reset();
       contactFormData.value.honorific = 'unknown';
     }

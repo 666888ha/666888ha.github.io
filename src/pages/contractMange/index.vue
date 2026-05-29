@@ -14,7 +14,11 @@
         <!-- 搜索关键词 -->
         <div class="filter-item">
           <label class="filter-label">搜索关键词</label>
-          <t-input v-model="searchForm.keyword" placeholder="合同编号/主题/客户名称" clearable />
+          <t-input
+            v-model="searchForm.keyword"
+            placeholder="合同编号/主题/客户名称/产品名称/型号/料号"
+            clearable
+          />
         </div>
         <!-- 审批状态 -->
         <div class="filter-item">
@@ -267,7 +271,10 @@
       <div class="search-form-grid">
         <div class="form-item">
           <label class="form-label">输入搜索关键词</label>
-          <t-input v-model="advancedSearchForm.keyword" placeholder="请输入关键词" />
+          <t-input
+            v-model="advancedSearchForm.keyword"
+            placeholder="合同编号/主题/客户/产品名称/型号/料号"
+          />
         </div>
 
         <div class="form-item">
@@ -407,7 +414,7 @@ const handleTabChange = (value: string | number) => {
 
 // 搜索表单
 const searchForm = ref({
-  keyword: '', // 合同编号/主题/客户名称关键词
+  keyword: '', // 合同编号/主题/客户/合同产品明细（名称、型号、料号）
   approvalStatus: '', // 审批状态
   executionStatus: '', // 执行状态
   signDateRange: [], // 签单日期范围

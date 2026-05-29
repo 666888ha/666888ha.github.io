@@ -10,6 +10,18 @@
     @cancel="handleCancel"
   >
     <t-form ref="formRef" :data="formData" :rules="rules" label-align="right" :label-width="100">
+      <t-form-item label="会议标题" name="title">
+        <t-input v-model="formData.title" maxlength="100" placeholder="请输入会议标题" />
+      </t-form-item>
+      <t-form-item label="会议备注" name="remark">
+        <t-textarea
+          v-model="formData.remark"
+          :autosize="{ minRows: 2, maxRows: 5 }"
+          maxlength="500"
+          placeholder="选填"
+          show-word-limit
+        />
+      </t-form-item>
       <t-form-item label="会议纪要" name="content">
         <wang-editor v-model="formData.content" :height="300" />
       </t-form-item>
@@ -46,20 +58,27 @@ const confirmLoading = ref(false);
 const uploadAction = ref('/api/dict/upload');
 
 const formData = ref<{
+  title: string;
+  remark: string;
   content: string;
   attachments: UploadFile[];
 }>({
+  title: '',
+  remark: '',
   content: '',
   attachments: [],
 });
 
 const rules: Record<string, FormRule[]> = {
+  title: [{ required: true, message: '请输入会议标题', type: 'error' }],
   content: [{ required: true, message: '请输入会议纪要内容', type: 'error' }],
 };
 
 // 对外暴露：显示弹框
 const show = () => {
   formData.value = {
+    title: '',
+    remark: '',
     content: '',
     attachments: [],
   };
@@ -86,6 +105,8 @@ const handleConfirm = async () => {
   confirmLoading.value = true;
   try {
     const payload: any = {
+      title: formData.value.title.trim(),
+      remark: (formData.value.remark || '').trim(),
       content: formData.value.content,
       hyurl: formatAttachments(formData.value.attachments || []),
     };

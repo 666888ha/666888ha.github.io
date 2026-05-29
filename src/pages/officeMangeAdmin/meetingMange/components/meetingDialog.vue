@@ -58,6 +58,12 @@ const formData = ref<{
 
 const isEdit = computed(() => !!formData.value.id);
 
+function stripHtmlPreview(html: string, maxLen = 80): string {
+  if (!html || typeof html !== 'string') return '';
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
+}
+
 const rules: Record<string, FormRule[]> = {
   title: [{ required: true, message: '请输入会议标题', type: 'error' }],
   content: [{ required: true, message: '请输入会议内容', type: 'error' }],
@@ -68,7 +74,13 @@ const show = (record?: any) => {
   if (record && record.id) {
     formData.value = {
       id: record.id,
-      title: record.title || record.name || record.topic || '',
+      title:
+        record.title ||
+        record.name ||
+        record.topic ||
+        record.meeting_title ||
+        stripHtmlPreview(record.content || '') ||
+        '',
       content: record.content || '',
       remark: record.remark || '',
     };

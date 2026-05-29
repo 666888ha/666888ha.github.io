@@ -35,7 +35,13 @@
             </t-form-item>
 
             <t-form-item label="部门职务" name="role">
-              <t-select v-model="contactFormData.role" placeholder="请选择" clearable :options="departmentOptions" />
+              <t-select
+                v-model="contactFormData.role"
+                placeholder="请选择"
+                clearable
+                :options="departmentOptions"
+                :loading="loadingDepartmentRole"
+              />
             </t-form-item>
 
             <t-form-item label="固定电话" name="tel">
@@ -46,7 +52,7 @@
               <t-input v-model="contactFormData.email" placeholder="请输入" clearable />
             </t-form-item>
 
-            <t-form-item label="详细地址" name="contact_address" class="detailed-address-item">
+            <t-form-item label="家庭住址" name="contact_address" class="detailed-address-item">
               <t-input v-model="contactFormData.contact_address" placeholder="请输入" clearable />
             </t-form-item>
           </t-col>
@@ -127,6 +133,7 @@ import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { addContact, getContactDetail, getCustomerList, updateContact } from '@/api/customer/customer';
+import { useContactDeptRoleOptions } from '@/utils/contactDeptRoleDict';
 import { areaTree } from '@/utils/area';
 
 defineOptions({
@@ -192,15 +199,7 @@ const roleOptions = [
   { label: '其他', value: '其他' },
 ];
 
-// 部门职务选项
-const departmentOptions = [
-  { label: '总经理', value: '总经理' },
-  { label: '副总经理', value: '副总经理' },
-  { label: '部门经理', value: '部门经理' },
-  { label: '主管', value: '主管' },
-  { label: '员工', value: '员工' },
-  { label: '其他', value: '其他' },
-];
+const { departmentOptions, loadingDepartmentRole, loadContactDeptRoleOptions } = useContactDeptRoleOptions();
 
 // 客户选项
 const customerOptions = ref<Array<{ label: string; value: string | number }>>([]);
@@ -371,6 +370,7 @@ const loadContactDetail = async (contactId: string) => {
 };
 // 初始化
 onMounted(async () => {
+  await loadContactDeptRoleOptions();
   // 加载客户列表
   await loadCustomerOptions();
   // 如果是编辑模式，加载联系人详情
@@ -379,7 +379,7 @@ onMounted(async () => {
   }
   // 如果是客户详情进来的添加联系人，默认选中当前客户不可修改
   if (customer_id) {
-    contactFormData.value.customer_id = Number(customer_id);
+    contactFormData.value.customer_id = String(customer_id);
   }
 });
 </script>

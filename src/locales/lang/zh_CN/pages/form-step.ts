@@ -39,7 +39,7 @@ export default {
     consignee: '收货人',
     mobileNum: '手机号码',
     deliveryAddress: '收货地址',
-    fullAddress: '详细地址',
+    fullAddress: '企业办公地址',
   },
   step4: {
     title: '完成申请',

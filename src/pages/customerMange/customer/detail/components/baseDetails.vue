@@ -33,7 +33,7 @@
         </t-row>
         <t-row v-if="customerData.region" type="flex">
           <base-desc-item label="所在地区"> {{ customerData.region }} </base-desc-item>
-          <base-desc-item label="详细地址"> {{ customerData.address }} </base-desc-item>
+          <base-desc-item label="企业办公地址"> {{ customerData.address }} </base-desc-item>
         </t-row>
         <t-row v-if="customerData.registeredCapital || customerData.companyScale" type="flex">
           <base-desc-item label="注册资本"> {{ customerData.registeredCapital }} </base-desc-item>
@@ -98,7 +98,7 @@
         </t-row>
         <t-row v-if="primaryContact.wechat || primaryContact.contact_address" type="flex">
           <base-desc-item v-if="primaryContact.wechat" label="微信账号">{{ primaryContact.wechat }}</base-desc-item>
-          <base-desc-item v-if="primaryContact.contact_address" label="联系地址">{{
+          <base-desc-item v-if="primaryContact.contact_address" label="家庭住址">{{
             primaryContact.contact_address
           }}</base-desc-item>
         </t-row>

@@ -72,7 +72,7 @@
           <base-desc-item label="所在地区">
             {{ followDetail.region_name || '-' }}
           </base-desc-item>
-          <base-desc-item label="详细地址">
+          <base-desc-item label="企业办公地址">
             {{ followDetail.address || '-' }}
           </base-desc-item>
         </t-row>

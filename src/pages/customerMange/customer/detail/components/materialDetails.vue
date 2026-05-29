@@ -48,7 +48,7 @@
       <base-desc label-width="150px">
         <t-row type="flex">
           <base-desc-item label="所在地区">{{ customerData.region }}</base-desc-item>
-          <base-desc-item label="详细地址">{{ customerData.address }}</base-desc-item>
+          <base-desc-item label="企业办公地址">{{ customerData.address }}</base-desc-item>
         </t-row>
         <t-row type="flex">
           <base-desc-item label="企业规模">{{ customerData.registeredCapital }}</base-desc-item>

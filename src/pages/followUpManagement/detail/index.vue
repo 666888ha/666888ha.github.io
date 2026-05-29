@@ -48,18 +48,31 @@
         <t-row type="flex">
           <base-desc-item label="打卡">
             <t-space v-for="item in punchImages" :key="item.label" direction="vertical" align="center">
-              <t-image
-                :src="item.src || defaultImageUrl"
-                fit="contain"
-                :style="{ width: '120px', height: '120px', marginLeft: '10px' }"
-                @error="onError"
-              />
+              <div
+                class="punch-thumb-wrap"
+                :class="{ 'is-clickable': !!item.src }"
+                @click="openPunchPreview(item)"
+              >
+                <t-image
+                  :src="item.src || defaultImageUrl"
+                  fit="contain"
+                  :style="{ width: '120px', height: '120px', marginLeft: '10px' }"
+                  @error="onError"
+                />
+              </div>
               <span>{{ item.label }}</span>
             </t-space>
           </base-desc-item>
         </t-row>
       </base-desc>
     </t-card>
+
+    <t-image-viewer
+      :key="punchViewerKey"
+      v-model:visible="punchPreviewVisible"
+      :default-index="punchPreviewIndex"
+      :images="punchPreviewImageList"
+    />
   </div>
 </template>
 <script setup lang="ts">
@@ -114,6 +127,29 @@ const punchImages = computed(() => {
 const onError: ImageProps['onError'] = () => {
   // 保持静默，图片失败时仍然展示占位
 };
+
+const punchPreviewVisible = ref(false);
+const punchPreviewImageList = ref<string[]>([]);
+const punchPreviewIndex = ref(0);
+const punchViewerKey = ref(0);
+
+function openPunchPreview(clicked: { label: string; src: string }) {
+  if (!clicked.src) return;
+  const list: string[] = [];
+  let idx = 0;
+  for (const item of punchImages.value) {
+    if (!item.src) continue;
+    if (item.label === clicked.label) {
+      idx = list.length;
+    }
+    list.push(item.src);
+  }
+  if (!list.length) return;
+  punchPreviewImageList.value = list;
+  punchPreviewIndex.value = idx;
+  punchViewerKey.value += 1;
+  punchPreviewVisible.value = true;
+}
 
 // 加载详情
 const loadFollowDetail = async () => {
@@ -192,5 +228,13 @@ onMounted(() => {
 .info-actions {
   display: flex;
   gap: 8px;
+}
+
+.punch-thumb-wrap {
+  line-height: 0;
+
+  &.is-clickable {
+    cursor: zoom-in;
+  }
 }
 </style>

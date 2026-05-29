@@ -69,12 +69,12 @@
       >
         <!-- 名称 -->
         <template #name="{ row }">
-          {{ row.title || row.name || row.topic || '-' }}
+          {{ displayMeetingTitle(row) }}
         </template>
 
         <!-- 部门 -->
         <template #dept_name="{ row }">
-          {{ row.dept_name || '-' }}
+          {{ displayMeetingDept(row) }}
         </template>
 
         <!-- 备注 -->
@@ -90,6 +90,12 @@
         <!-- 修改时间 -->
         <template #update_time="{ row }">
           {{ row.update_time || '-' }}
+        </template>
+
+        <!-- 附件 -->
+        <template #hyurl="{ row }">
+          <t-link v-if="row.hyurl" :href="row.hyurl" target="_blank" download theme="primary"> 下载会议纪要 </t-link>
+          <span v-else>-</span>
         </template>
 
         <!-- 操作 -->
@@ -144,6 +150,36 @@ defineOptions({
   name: 'MeetingMange',
 });
 
+/** 无标题时从富文本内容截取展示（兼容仅上传附件/内容的旧数据） */
+function stripHtmlPreview(html: string, maxLen = 80): string {
+  if (!html || typeof html !== 'string') return '';
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
+}
+
+function displayMeetingTitle(row: Record<string, any>) {
+  const t = row.title || row.name || row.topic || row.meeting_title;
+  if (t) return t;
+  const fromContent = stripHtmlPreview(row.content || '');
+  return fromContent || '-';
+}
+
+/** 部门名称（勿用员工姓名兜底，易与「部门」列语义混淆） */
+function displayMeetingDept(row: Record<string, any>) {
+  const fromCreatorDept =
+    row.create_user?.dept?.dept_name ??
+    row.createUser?.dept?.dept_name ??
+    row.creator_dept_name;
+  return (
+    row.dept_name ||
+    row.department_name ||
+    row.dept_title ||
+    row.dept ||
+    fromCreatorDept ||
+    '-'
+  );
+}
+
 // 筛选表单
 const searchForm = ref({
   topic: '',
@@ -174,6 +210,7 @@ const columns: PrimaryTableCol[] = [
   { colKey: 'name', title: '名称', minWidth: 200, cell: 'name' },
   { colKey: 'dept_name', title: '部门', width: 140, cell: 'dept_name' },
   { colKey: 'remark', title: '备注', minWidth: 200, ellipsis: true, cell: 'remark' },
+  { colKey: 'hyurl', title: '附件', width: 120, align: 'center', cell: 'hyurl' },
   { colKey: 'create_time', title: '创建时间', width: 180, cell: 'create_time' },
   { colKey: 'update_time', title: '修改时间', width: 180, cell: 'update_time' },
   { colKey: 'operation', title: '操作', width: 200, align: 'center', cell: 'operation' },
@@ -213,7 +250,9 @@ const loadTableData = async () => {
       limit: pagination.value.pageSize,
     };
     if (searchForm.value.topic) {
-      params.topic = searchForm.value.topic.trim();
+      const kw = searchForm.value.topic.trim();
+      params.keyword = kw;
+      params.topic = kw;
     }
     if (searchForm.value.dept_id) {
       params.dept_id = searchForm.value.dept_id;
@@ -287,7 +326,7 @@ const handleDelete = (row: any) => {
   }
   const confirmDia = DialogPlugin.confirm({
     header: '删除会议',
-    body: `确定要删除会议【${row.title || row.name || row.topic || ''}】吗？删除后无法恢复。`,
+    body: `确定要删除会议【${displayMeetingTitle(row)}】吗？删除后无法恢复。`,
     theme: 'warning',
     confirmBtn: '确定',
     cancelBtn: '取消',

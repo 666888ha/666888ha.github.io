@@ -139,8 +139,17 @@ const formRules: FormRules = {
 // 当前编辑的报告ID
 const currentReportId = ref<string | number | null>(null);
 
-// 显示弹框（支持编辑模式）
-const show = (reportData?: any) => {
+export type WorkReportPrefill = {
+  /** 预填工作总结 */
+  summary?: string;
+  /** 预填工作计划 */
+  plan?: string;
+  /** 报告类型，默认日报 */
+  report_type?: number;
+};
+
+// 显示弹框（支持编辑模式；新增时可传 prefill 预填，例如从客户跟单一键带入）
+const show = (reportData?: any, prefill?: WorkReportPrefill) => {
   if (reportData && reportData.id) {
     // 编辑模式：填充数据
     currentReportId.value = reportData.id;
@@ -151,16 +160,15 @@ const show = (reportData?: any) => {
   } else {
     // 新增模式：重置表单数据
     currentReportId.value = null;
-    formData.report_type = 1;
-    formData.submit_time = '';
-    formData.summary = '';
-    formData.plan = '';
-    // 设置默认日期为今天
     const today = new Date();
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
-    formData.submit_time = `${year}-${month}-${day}`;
+    const todayStr = `${year}-${month}-${day}`;
+    formData.report_type = prefill?.report_type ?? 1;
+    formData.submit_time = todayStr;
+    formData.summary = prefill?.summary ?? '';
+    formData.plan = prefill?.plan ?? '';
   }
   // 显示弹框
   dialogVisible.value = true;

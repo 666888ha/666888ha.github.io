@@ -73,7 +73,7 @@
             <base-desc-item label="QQ号码">{{ contactInfo.wechat || '-' }}</base-desc-item>
           </t-row>
           <t-row type="flex">
-            <base-desc-item label="详细地址">{{ contactInfo.contact_address || '-' }}</base-desc-item>
+            <base-desc-item label="家庭住址">{{ contactInfo.contact_address || '-' }}</base-desc-item>
             <base-desc-item label="客户名称">
               <t-link theme="primary" @click="handleViewCustomer(contactInfo.customer_id)">{{
                 contactInfo.customer_name

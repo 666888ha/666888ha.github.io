@@ -125,17 +125,30 @@
         <t-form-item class="form-actions">
           <t-space>
             <t-button theme="primary" type="submit"> 提交 </t-button>
+            <t-button
+              theme="default"
+              variant="outline"
+              type="button"
+              @click.stop="openGenerateDailyReport"
+            >
+              <template #icon>
+                <t-icon name="file" />
+              </template>
+              生成日报
+            </t-button>
             <t-button theme="default" variant="outline" type="button" @click="handleReset"> 重置 </t-button>
           </t-space>
         </t-form-item>
       </t-form>
     </t-card>
+
+    <add-work-report-dialog ref="workReportDialogRef" />
   </div>
 </template>
 <script setup lang="ts">
 import type { FormInstanceFunctions, FormRules, SubmitContext } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
-import { computed, onMounted, ref, watch } from 'vue';
+import { defineAsyncComponent, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import {
@@ -153,6 +166,8 @@ defineOptions({
   name: 'FollowUpCustomer',
 });
 
+const AddWorkReportDialog = defineAsyncComponent(() => import('@/pages/workReport/components/addWorkReportDialog.vue'));
+
 const props = defineProps<{
   // 跟进记录ID，编辑时由上层传入
   queryId?: string;
@@ -164,6 +179,7 @@ const props = defineProps<{
 const router = useRouter();
 const route = useRoute();
 const formRef = ref<FormInstanceFunctions>();
+const workReportDialogRef = ref<InstanceType<typeof AddWorkReportDialog> | null>(null);
 const isEdit = ref(false);
 // 表单数据
 const formData = ref({
@@ -212,54 +228,128 @@ const formRules: FormRules = {
   follow_content: [{ required: true, message: '请输入跟进信息', type: 'error' }],
 };
 
+function buildFollowRequestData() {
+  return {
+    customer_id: formData.value.customer_id,
+    main_visitor: formData.value.main_visitor,
+    visitor_identity: formData.value.visitor_identity,
+    follow_type: formData.value.follow_type,
+    follow_content: formData.value.follow_content,
+    departure_time: formData.value.departureTime,
+    arrival_time: formData.value.arrivalTime,
+    leave_time: formData.value.leaveTime,
+    departure_photo: formData.value.departure_photo,
+    arrival_photo: formData.value.arrival_photo,
+    leave_photo: formData.value.leave_photo,
+    win_rate: formData.value.win_rate,
+  };
+}
+
+/** 向后台保存跟进（新增/编辑），供「提交」与「生成日报」共用 */
+async function performFollowSubmit(): Promise<{ ok: boolean; msg?: string }> {
+  try {
+    const requestData = buildFollowRequestData();
+    let res: any;
+    if (props.type === '2') {
+      res = await editFollow({
+        id: props.queryId,
+        ...requestData,
+      });
+    } else {
+      res = await addFollowUp(requestData);
+    }
+    if (res.code === 0 || res.code === 200) {
+      return { ok: true };
+    }
+    return {
+      ok: false,
+      msg: res.msg || (props.type === '2' ? '跟进信息编辑失败' : '跟进信息提交失败'),
+    };
+  } catch (error) {
+    console.error('提交跟进信息失败:', error);
+    return { ok: false, msg: '提交跟进信息失败，请重试' };
+  }
+}
+
 // 提交表单
 const handleSubmit = async ({ validateResult, firstError }: SubmitContext) => {
-  if (validateResult === true) {
-    try {
-      let res;
-      // 构建请求数据
-      const requestData: any = {
-        customer_id: formData.value.customer_id,
-        main_visitor: formData.value.main_visitor,
-        visitor_identity: formData.value.visitor_identity,
-        follow_type: formData.value.follow_type,
-        follow_content: formData.value.follow_content,
-        departure_time: formData.value.departureTime,
-        arrival_time: formData.value.arrivalTime,
-        leave_time: formData.value.leaveTime,
-        departure_photo: formData.value.departure_photo,
-        arrival_photo: formData.value.arrival_photo,
-        leave_photo: formData.value.leave_photo,
-        win_rate: formData.value.win_rate,
-      };
-      if (props.type === '2') {
-        // 编辑跟进
-        res = await editFollow({
-          id: props.queryId,
-          ...requestData,
-        });
-      } else {
-        // 新增跟进
-        res = await addFollowUp(requestData);
-      }
-      if (res.code === 0 || res.code === 200) {
-        MessagePlugin.success(props.type === '2' ? '跟进信息编辑成功' : '跟进信息提交成功');
-        // 提交成功：若有自定义成功回调（弹框场景），优先执行回调；否则返回上一页
-        if (props.onSuccess) {
-          props.onSuccess();
-        } else {
-          router.back();
-        }
-      } else {
-        MessagePlugin.error(res.msg || (props.type === '2' ? '跟进信息编辑失败' : '跟进信息提交失败'));
-      }
-    } catch (error) {
-      console.error('提交跟进信息失败:', error);
-      MessagePlugin.error('提交跟进信息失败，请重试');
-    }
-  } else {
+  if (validateResult !== true) {
     MessagePlugin.warning(firstError || '请完善表单信息');
+    return;
   }
+  const { ok, msg } = await performFollowSubmit();
+  if (!ok) {
+    MessagePlugin.error(msg || '操作失败');
+    return;
+  }
+  MessagePlugin.success(props.type === '2' ? '跟进信息编辑成功' : '跟进信息提交成功');
+  if (props.onSuccess) {
+    props.onSuccess();
+  } else {
+    router.back();
+  }
+};
+
+function getCustomerLabel() {
+  const id = formData.value.customer_id;
+  if (!id) return '-';
+  return customerOptions.value.find((o) => String(o.value) === String(id))?.label || '-';
+}
+
+function getVisitorLabel() {
+  const id = formData.value.main_visitor;
+  if (!id) return '-';
+  return (visitorcontactOptions.value as { label: string; value: string | number }[]).find(
+    (o) => String(o.value) === String(id),
+  )?.label || '-';
+}
+
+function getFollowTypeLabel() {
+  const v = formData.value.follow_type;
+  if (v === undefined || v === null || v === '') return '-';
+  const o = followTypeOptions.value.find((x) => String(x.value) === String(v));
+  return o?.label ?? String(v);
+}
+
+function getWinRateLabel() {
+  const v = formData.value.win_rate;
+  if (v === undefined || v === null) return '-';
+  return dealProbabilityOptions.value.find((o) => o.value === v)?.label ?? `${v}%`;
+}
+
+function buildDailyReportSummaryFromForm(): string {
+  const lines: string[] = ['【来自客户跟进】', `客户：${getCustomerLabel()}`, ''];
+  lines.push(`拜访人：${getVisitorLabel()}｜身份：${formData.value.visitor_identity || '-'}`);
+  lines.push(`跟进类型：${getFollowTypeLabel()}｜成交几率：${getWinRateLabel()}`);
+  lines.push('');
+  lines.push('跟进内容：');
+  lines.push((formData.value.follow_content || '').trim());
+  const p: string[] = [];
+  if (formData.value.departureTime) p.push(`出发 ${formData.value.departureTime}`);
+  if (formData.value.arrivalTime) p.push(`到达 ${formData.value.arrivalTime}`);
+  if (formData.value.leaveTime) p.push(`离开 ${formData.value.leaveTime}`);
+  if (p.length) {
+    lines.push('');
+    lines.push(`打卡：${p.join('；')}`);
+  }
+  return lines.join('\n');
+}
+
+/** 先保存跟进，再打开日报预填，避免只写日报不落库 */
+const openGenerateDailyReport = async () => {
+  const validateResult = await formRef.value?.validate();
+  if (validateResult !== true) {
+    return;
+  }
+  const { ok, msg } = await performFollowSubmit();
+  if (!ok) {
+    MessagePlugin.error(msg || '跟进保存失败，无法生成日报');
+    return;
+  }
+  MessagePlugin.success('跟进已保存，已打开日报，请继续完善并保存');
+  const summary = buildDailyReportSummaryFromForm();
+  const plan = '请补充今日其他工作及明日计划。';
+  workReportDialogRef.value?.show(undefined, { summary, plan, report_type: 1 });
 };
 
 // 重置表单

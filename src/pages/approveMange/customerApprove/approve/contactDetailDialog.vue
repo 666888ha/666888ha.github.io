@@ -26,7 +26,7 @@
       <base-desc-item label="微信账号">
         {{ detail.wechat || '-' }}
       </base-desc-item>
-      <base-desc-item label="详细地址">
+      <base-desc-item label="家庭住址">
         {{ detail.contact_address || '-' }}
       </base-desc-item>
       <base-desc-item label="尊称">

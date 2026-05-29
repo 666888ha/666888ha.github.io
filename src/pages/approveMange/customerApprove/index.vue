@@ -89,8 +89,8 @@
 
         <!-- 客户状态 -->
         <template #customer_jieduan="{ row }">
-          <t-tag :theme="getStatusTheme(row.customer_jieduan)" variant="light" size="small">{{
-            getStatusName(row.customer_jieduan)
+          <t-tag :theme="getCustomerJieduanTheme(row.customer_jieduan)" variant="light" size="small">{{
+            getListRowCustomerJieduanLabel(row, statusOptions)
           }}</t-tag>
         </template>
         <!-- 审批状态 -->
@@ -159,6 +159,11 @@ import { exportApprovalTodoList, getApprovalTodoList } from '@/api/approve/index
 import type { CustomerListItem } from '@/api/customer/customer';
 import { batchReceiveGarbage, deleteCustomer } from '@/api/customer/customer';
 import { getDictOptions } from '@/api/dic';
+import {
+  getCustomerJieduanTheme,
+  getListRowCustomerJieduanLabel,
+  mapDictOptionsToSelect,
+} from '@/utils/customerJieduanDict';
 import { getApprovalStatusText } from '@/utils/ruoyi';
 
 defineOptions({
@@ -200,7 +205,7 @@ const loadCustomerStatusOptions = async () => {
     const response = await getDictOptions('customer_jieduan', false);
     if (response.code === 0 || response.code === 200) {
       const data = response.data || [];
-      statusOptions.value = data;
+      statusOptions.value = mapDictOptionsToSelect(data);
     }
   } catch (error: any) {
     MessagePlugin.error('获取客户状态字典失败，请重试');
@@ -281,31 +286,6 @@ const levelOptions = ref([
   { label: '5星', value: 5 },
 ]);
 
-// 获取状态主题
-const getStatusTheme = (status: string | number): 'primary' | 'warning' | 'success' | 'default' | 'danger' => {
-  const themeMap: Record<string, 'primary' | 'warning' | 'success' | 'default' | 'danger'> = {
-    customer_jieduan1: 'primary', // 了解产品
-    customer_jieduan2: 'warning', // 正在跟进
-    customer_jieduan3: 'primary', // 正在试用
-    customer_jieduan4: 'warning', // 准备购买
-    customer_jieduan5: 'success', // 准备付款
-    customer_jieduan6: 'success', // 已经购买
-    customer_jieduan7: 'default', // 暂时搁置
-  };
-  return themeMap[String(status)] || 'default';
-};
-const getStatusName = (status: string | number): string => {
-  const nameMap: Record<string, string> = {
-    customer_jieduan1: '了解产品',
-    customer_jieduan2: '正在跟进',
-    customer_jieduan3: '正在试用',
-    customer_jieduan4: '准备购买',
-    customer_jieduan5: '准备付款',
-    customer_jieduan6: '已经购买',
-    customer_jieduan7: '暂时搁置',
-  };
-  return nameMap[status] || '未知状态';
-};
 // 所有可用的列定义（完整配置）
 const allColumnsConfig: Record<string, PrimaryTableCol> = {
   rowSelect: {

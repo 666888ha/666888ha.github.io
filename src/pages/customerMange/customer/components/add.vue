@@ -176,13 +176,14 @@
               </t-form-item>
             </t-col>
 
-            <!-- 详细地址 -->
-            <t-col :span="6">
-              <t-form-item label="详细地址" name="address">
-                <t-input v-model="formData.address" placeholder="请输入" clearable />
+            <!-- 企业办公地址：高德地点检索 + 地图选点 -->
+            <t-col :span="18">
+              <t-form-item label="企业办公地址" name="address">
+                <amap-address-field v-model="formData.address" v-model:region="formData.region" />
               </t-form-item>
             </t-col>
-
+          </t-row>
+          <t-row :gutter="[24, 32]">
             <!-- 企业规模 -->
             <t-col :span="6">
               <t-form-item label="企业规模" name="company_scale">
@@ -307,6 +308,8 @@ import {
 import { getDictOptions } from '@/api/dic';
 import { areaTree } from '@/utils/area';
 
+import AmapAddressField from '@/components/AmapAddressField/index.vue';
+
 import type { Contact } from './ContactDialog.vue';
 import ContactDialog from './ContactDialog.vue';
 
@@ -339,7 +342,7 @@ const formData = ref({
   channel: '',
   owner_user_id: '', // 归属人 ID
   region: [] as string[], // 级联选择器返回数组格式 [省, 市, 区]
-  address: '', // 详细地址
+  address: '', // 企业办公地址
   company_scale: '', // 公司规模
   related_customer_id: [] as string[], // 相关客户 ID，多选
   remark: '',
@@ -662,7 +665,7 @@ const formRules: FormRules = {
   channel: [{ required: true, message: '请选择客户渠道', type: 'error' }],
   owner: [{ required: true, message: '请选择归属人员', type: 'error' }],
   region: [{ required: true, message: '请选择所在地区', type: 'error' }],
-  detailAddress: [{ required: true, message: '请选择详情地址', type: 'error' }],
+  address: [{ required: true, message: '请填写企业办公地址', type: 'error' }],
   enterpriseScale: [{ required: true, message: '请选择企业规模', type: 'error' }],
 };
 

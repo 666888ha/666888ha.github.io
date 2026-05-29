@@ -1356,7 +1356,8 @@ export default [
           {
             path: 'attributeAnalysis',
             name: 'customerAttributeAnalysis',
-            component: () => import('@/pages/officeMangeAdmin/salesStatistics/customerData/attributeAnalysis/index.vue'),
+            component: () =>
+              import('@/pages/officeMangeAdmin/salesStatistics/customerData/attributeAnalysis/index.vue'),
             meta: {
               id: 97,
               parent_id: 96,
@@ -1369,7 +1370,8 @@ export default [
           {
             path: 'regionalDistribution',
             name: 'customerRegionalDistribution',
-            component: () => import('@/pages/officeMangeAdmin/salesStatistics/customerData/regionalDistribution/index.vue'),
+            component: () =>
+              import('@/pages/officeMangeAdmin/salesStatistics/customerData/regionalDistribution/index.vue'),
             meta: {
               id: 98,
               parent_id: 96,
